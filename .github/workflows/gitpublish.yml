@@ -1,0 +1,50 @@
+name: Publish Tag and Release
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  job1:
+    name: Publish Tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: "Refresh tags"
+        id: refresh-tag
+        run: git fetch --tags --force
+      - name: Get Current version
+        id: current_version
+        run: echo ::set-output name=version::$(node -p "require('./package.json').version")
+      - name: Push Tag
+        id: tag
+        uses: anothrNick/github-tag-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          CUSTOM_TAG: "v${{ steps.current_version.outputs.version }}"
+  job2:
+    needs: job1
+    name: Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: "Refresh tags"
+        id: tag
+        run: git fetch --tags --force
+      - name: Get Current version
+        id: current_version
+        run: echo ::set-output name=version::$(node -p "require('./package.json').version")
+      - name: Echo Debug 
+        run: |
+          echo "${{ steps.current_version.outputs.version }}"
+      - name: Create GitHub release
+        uses: Roang-zero1/github-create-release-action@master
+        with:
+          prerelease_regex: ^v[0-9]\.[0-9]\.[0-9]\-
+          created_tag: v${{ steps.current_version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
