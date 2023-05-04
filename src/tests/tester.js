@@ -1,8 +1,23 @@
 const logger = require('../../build');
 
-const log = new logger.Logger({ debug: true, disableFatalCrash: true });
+const log = new logger.Logger({
+  prefix: 'TESTER',
+  debug: true,
+  coloredBackground: true,
+  allLineColored: true,
+  disableFatalCrash: true,
+  fileProperties: {
+    enable: true,
+    logFolderPath: './logs1',
+    enableLatestLog: true,
+    enableDebugLog: true,
+    enableErrorLog: true,
+    enableFatalLog: true,
+    generateHTMLLog: false,
+    compressLogFilesAfterNewExecution: true,
+  },
+});
 
-log.log('Hello world!');
 log.debug('Hello world!');
 log.info('Hello world!');
 log.warn('Hello world!');

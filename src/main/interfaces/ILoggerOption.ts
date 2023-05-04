@@ -11,6 +11,17 @@ export enum ELoggerLevel {
   DEBUG = 4
 }
 
+export interface ILoggerFileProperties {
+  enable: boolean;
+  logFolderPath: string;
+  enableLatestLog?: boolean;
+  enableDebugLog?: boolean;
+  enableErrorLog?: boolean;
+  enableFatalLog?: boolean;
+  generateHTMLLog?: boolean;
+  compressLogFilesAfterNewExecution?: boolean;
+}
+
 export interface ILoggerOptions {
   defaultLevel?: ELoggerLevel;
   prefix?: string;
@@ -18,4 +29,5 @@ export interface ILoggerOptions {
   coloredBackground?: boolean;
   allLineColored?: boolean;
   disableFatalCrash?: boolean;
+  fileProperties?: ILoggerFileProperties
 }

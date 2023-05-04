@@ -24,6 +24,8 @@
   },
   "homepage": "https://github.com/PromisePending/logger.js#readme",
   "dependencies": {
+    "@types/adm-zip": "^0.5.0",
+    "adm-zip": "^0.5.10",
     "chalk": "^4.1.2"
   },
   "devDependencies": {
