@@ -8,18 +8,21 @@ const log = new logger.Logger({
   disableFatalCrash: true,
   fileProperties: {
     enable: true,
-    logFolderPath: './logs1',
+    logFolderPath: './logs',
     enableLatestLog: true,
     enableDebugLog: true,
     enableErrorLog: true,
     enableFatalLog: true,
-    generateHTMLLog: false,
+    generateHTMLLog: true,
     compressLogFilesAfterNewExecution: true,
   },
 });
 
-log.debug('Hello world!');
-log.info('Hello world!');
-log.warn('Hello world!');
-log.error('Hello world!');
-log.fatal('Hello world!');
+const ERROR = new Error('Example error');
+
+log.debug(ERROR);
+log.info(['Hello world!', 'This is a test!']);
+log.warn('<h1>Hello world!</h1>');
+log.error({ message: 'Hello world!', code: 500 });
+log.fatal(ERROR);
+log.debug('This happens after a fatal error!');

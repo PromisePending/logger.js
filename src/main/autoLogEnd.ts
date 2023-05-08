@@ -2,28 +2,28 @@ import { Logger } from './';
 import util from 'util';
 
 var exited = false;
+var logger: Logger | null = null;
 
-const logger: Logger = new Logger({ prefix: 'SYSTEM' });
 function exitHandler({ err, options, exitCode }: {err?: {stack: any, message: any, name: any}, options?: {uncaughtException: boolean}, exitCode?: number | string}): void {
   if (!exited) {
     process.stdin.resume();
     exited = true;
     if (typeof exitCode === 'string') {
-      logger.warn('Manually Finished!');
+      logger?.warn('Manually Finished!');
     } else {
-      if (exitCode !== 123654) logger.info('Program finished, code: ' + exitCode);
+      if (exitCode !== 123654) logger?.info('Program finished, code: ' + exitCode);
       if (exitCode === 123654 && options?.uncaughtException) {
-        logger.fatal(util.format(typeof err === 'string' ? err : err?.stack));
+        logger?.fatal(util.format(typeof err === 'string' ? err : err?.stack));
         exitCode = 1;
       } else if (exitCode && exitCode === 123654) {
-        logger.error(util.format(typeof err === 'string' ? err : err?.stack));
-        logger.warn('#===========================================================#');
-        logger.warn('| # AutoLogEnd prevent program exit!');
-        logger.warn('| # Code that is not async or would be runned after the line that generated the error cannot run as per nodejs default behavior.');
-        logger.warn('| # But promises, async code and event based functions will still be executed.');
-        logger.warn('| # In order to prevent sync code to stop, use an try-catch or a promise.');
-        logger.warn('#===========================================================#');
-        logger.warn('If you want to manually exit, you can still use control-c in the process.');
+        logger?.error(util.format(typeof err === 'string' ? err : err?.stack));
+        logger?.warn('#===========================================================#');
+        logger?.warn('| # AutoLogEnd prevent program exit!');
+        logger?.warn('| # Code that is not async or would be runned after the line that generated the error cannot run as per nodejs default behavior.');
+        logger?.warn('| # But promises, async code and event based functions will still be executed.');
+        logger?.warn('| # In order to prevent sync code to stop, use an try-catch or a promise.');
+        logger?.warn('#===========================================================#');
+        logger?.warn('If you want to manually exit, you can still use control-c in the process.');
         exited = false;
         return;
       }
@@ -32,7 +32,9 @@ function exitHandler({ err, options, exitCode }: {err?: {stack: any, message: an
   }
 }
 
-export function activate(uncaughtException?: boolean): void {
+export function activate(uncaughtException?: boolean, logger?: Logger): void {
+  logger = logger ?? new Logger({ prefix: 'SYSTEM' });
+  logger?.debug('AutoLogEnd activated!');
   process.on('exit', (exitCode) => exitHandler({ exitCode, options: { uncaughtException: false } }));
   process.on('SIGINT', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGINT' }); });
   process.on('SIGUSR1', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGUSR1' }); });
@@ -54,4 +56,5 @@ export function deactivate(): void {
   process.removeListener('SIGUSR2', exitHandler);
   process.removeListener('SIGTERM', exitHandler);
   process.removeListener('uncaughtException', exitHandler);
+  logger?.debug('AutoLogEnd deactivated!');
 }
