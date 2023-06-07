@@ -1,10 +1,28 @@
 const logger = require('../../build');
 
-const log = new logger.Logger({ debug: true, disableFatalCrash: true });
+const log = new logger.Logger({
+  prefix: 'TESTER',
+  debug: true,
+  coloredBackground: true,
+  allLineColored: true,
+  disableFatalCrash: true,
+  fileProperties: {
+    enable: true,
+    logFolderPath: './logs',
+    enableLatestLog: true,
+    enableDebugLog: true,
+    enableErrorLog: true,
+    enableFatalLog: true,
+    generateHTMLLog: true,
+    compressLogFilesAfterNewExecution: true,
+  },
+});
 
-log.log('Hello world!');
-log.debug('Hello world!');
-log.info('Hello world!');
-log.warn('Hello world!');
-log.error('Hello world!');
-log.fatal('Hello world!');
+const ERROR = new Error('Example error');
+
+log.debug(ERROR);
+log.info(['Hello world!', 'This is a test!']);
+log.warn('<h1>Hello world!</h1>');
+log.error({ message: 'Hello world!', code: 500 });
+log.fatal(ERROR);
+log.debug('This happens after a fatal error!');
