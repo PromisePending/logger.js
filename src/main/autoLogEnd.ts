@@ -1,4 +1,4 @@
-import { Logger } from './';
+import { Logger } from './logger';
 import util from 'util';
 
 var exited = false;
