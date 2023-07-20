@@ -1,13 +1,13 @@
-# v1.1.1: Saving Everything
+# v1.1.1: Saving Everything (patch)
   - [FIXED] Fixed a bug that caused logs that passed arguments to log the same thing twice
 
   - [FIXED] Fixed typescript types for the `Logger` class
 
-  - [FIXED] Fixed an issue that caused having two logger instances loggin to the same folder to cause a crash when the second instance tried to close the file stream
+  - [FIXED] Fixed an issue that caused having two logger instances logging to the same folder to cause a crash when the second instance tried to close the file stream
 
   - [FIXED] Zip files timestamp now reflects the last modified time of the latest log file instead of the time of the zip creation
 
-  - [UPDATE] Fatal logs now are saved per fatal crash instead of all fatal crashes of the same execution being saved to the same file
+  - [UPDATE] Fatal logs now are saved per fatal crash, instead of all fatal crashes of the same execution being saved to the same file
 
   - [UPDATE] Fatal logs now have a 4 character random code at the start of the file name to prevent overwriting of files
 
