@@ -1,3 +1,8 @@
+# V1.1.1
+  - [FIXED] Fixed a bug that caused logs that passed arguments to log the same thing twice
+
+  - [FIXED] Fixed typescript types for the `Logger` class
+
 # V1.1
   - Added support for logging to a file
 

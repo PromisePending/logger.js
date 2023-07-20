@@ -177,7 +177,7 @@ export class Logger {
     };
   }
 
-  log(text: string | number | Error, levelToLog?: ELoggerLevel, ...args: any): void {
+  log(text: any, levelToLog?: ELoggerLevel, ...args: any): void {
     const level = levelToLog ?? this.defaultLevel;
     var stackTrace = '';
     if (text instanceof Error) {
@@ -201,7 +201,7 @@ export class Logger {
     ;
 
     if ((this.debugActive && level === ELoggerLevel.DEBUG) || (level !== ELoggerLevel.DEBUG)) {
-      consoleLevels[level](coloredMessagePrefix + messageToConsole, ...args);
+      consoleLevels[level](coloredMessagePrefix + messageToConsole);
     }
 
     // escapes the text to a be secure to be used in html
@@ -235,23 +235,23 @@ export class Logger {
     }
   }
 
-  info(text: string | number | Error, ...args: any): void {
+  info(text: any, ...args: any): void {
     this.log(text, ELoggerLevel.INFO, ...args);
   }
 
-  warn(text: string | number | Error, ...args: any): void {
+  warn(text: any, ...args: any): void {
     this.log(text, ELoggerLevel.WARN, ...args);
   }
 
-  error(text: string | number | Error, ...args: any): void {
+  error(text: any, ...args: any): void {
     this.log(text, ELoggerLevel.ERROR, ...args);
   }
 
-  debug(text: string | number | Error, ...args: any): void {
+  debug(text: any, ...args: any): void {
     this.log(text, ELoggerLevel.DEBUG, ...args);
   }
 
-  fatal(text: string | number | Error, ...args: any): void {
+  fatal(text: any, ...args: any): void {
     var message = text.toString();
     var stack: string[] | undefined = [];
     var fullString = text.toString();
@@ -301,7 +301,7 @@ export class Logger {
       this.closeFileStreams(finalMessage, finalFatalMessage);
     }
 
-    console.error(msg, ...args);
+    console.error(msg);
 
     if (!this.disableFatalCrash) {
       process.exit(5);
