@@ -4,7 +4,7 @@ const logger = new Logger({
   prefix: 'Logger.JS', // This will be the prefix of all logs (default: null)
   disableFatalCrash: true, // If true, the logger will not crash the process when a fatal error occurs (default: false)
   allLineColored: true, // If true, the whole line will be colored instead of only the prefix (default: false)
-  coloredBackground: true, // If true, the background of the lines will be colored instead of the text (default: false)
+  coloredBackground: false, // If true, the background of the lines will be colored instead of the text (default: false)
   debug: false, // If true, the logger will log debug messages (default: false)
   fileProperties: { // This is the configuration of the log files
     enable: true, // If true, the logger will log to files (default: false) [NOTE: If false all below options will be ignored]
