@@ -17,9 +17,9 @@ export class Logger {
   private latestFileStream?: fs.WriteStream;
   private debugLogStream?: fs.WriteStream;
   private errorLogStream?: fs.WriteStream;
-  private fatalLogStream?: fs.WriteStream;
   private htmlBackgroundColor: string;
   private htmlTextColor: string;
+  private defaultHeader = '';
 
   constructor({ prefix, debug, defaultLevel, coloredBackground, disableFatalCrash, allLineColored, fileProperties }: ILoggerOptions) {
     this.prefix = prefix ?? '';
@@ -55,35 +55,32 @@ export class Logger {
       if (!fs.existsSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'))) fs.mkdirSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'));
 
       // eslint-disable-next-line max-len
-      const defaultHeader = `<body style="--txtBackground: ${this.htmlBackgroundColor}; color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor}; margin: 0;padding: 0.25rem;display:flex;flex-direction:column;"><style>* {padding: 0.15rem 0;} body > span {position: relative;display: flex;flex-direction: row;} span > span {height: 100%;display: block;padding: 0;width: 100%;box-shadow: 0 0 0 0.16rem var(--txtBackground)} .pre {width: fit-content;white-space: nowrap;box-shadow: none;}</style>\n`;
+      this.defaultHeader = `<body style="--txtBackground: ${this.htmlBackgroundColor}; color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor}; margin: 0;padding: 0.25rem;display:flex;flex-direction:column;"><style>* {padding: 0.15rem 0;} body > span {position: relative;display: flex;flex-direction: row;} span > span {height: 100%;display: block;padding: 0;width: 100%;box-shadow: 0 0 0 0.16rem var(--txtBackground)} .pre {width: fit-content;white-space: nowrap;box-shadow: none;}</style>\n`;
 
       if (this.fileProperties.enableLatestLog) {
         this.latestFileStream = fs.createWriteStream(
           Path.join(this.fileProperties.logFolderPath, `latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
         );
-        if (this.fileProperties.generateHTMLLog) this.latestFileStream.write(defaultHeader);
+        if (this.fileProperties.generateHTMLLog) this.latestFileStream.write(this.defaultHeader);
       }
       if (this.fileProperties.enableDebugLog) {
         this.debugLogStream = fs.createWriteStream(
           Path.join(this.fileProperties.logFolderPath, 'latestLogs', `debug.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
         );
-        if (this.fileProperties.generateHTMLLog) this.debugLogStream.write(defaultHeader);
+        if (this.fileProperties.generateHTMLLog) this.debugLogStream.write(this.defaultHeader);
       }
       if (this.fileProperties.enableErrorLog) {
         this.errorLogStream = fs.createWriteStream(
           Path.join(this.fileProperties.logFolderPath, 'latestLogs', `error.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
         );
-        if (this.fileProperties.generateHTMLLog) this.errorLogStream.write(defaultHeader);
-      }
-      if (this.fileProperties.enableFatalLog) {
-        this.fatalLogStream = fs.createWriteStream(
-          Path.join(this.fileProperties.logFolderPath, 'fatal-crash', `fatal-latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
-        );
-        if (this.fileProperties.generateHTMLLog) this.fatalLogStream.write(defaultHeader);
+        if (this.fileProperties.generateHTMLLog) this.errorLogStream.write(this.defaultHeader);
       }
 
       // handles process exists to properly close the streams
-      process.on('exit', this.closeFileStreams.bind(this, 'Process exited', undefined));
+      process.on('exit', (exitCode) => {
+        // eslint-disable-next-line max-len
+        this.closeFileStreams(`${this.fileProperties.generateHTMLLog ? '<br>\n<span>' : '\n'}Process exited with code (${exitCode})${this.fileProperties.generateHTMLLog ? '</span>\n<br>' : '\n'}`);
+      });
     } else {
       this.fileProperties.enableLatestLog = false;
       this.fileProperties.enableDebugLog = false;
@@ -95,24 +92,26 @@ export class Logger {
   }
 
   private closeFileStreams(closeStreamMessage?: string, customFatalMessage?: string): void {
-    if (this.latestFileStream) this.latestFileStream.end(closeStreamMessage?.toString());
-    if (this.debugLogStream) this.debugLogStream.end(closeStreamMessage?.toString());
-    if (this.errorLogStream) this.errorLogStream.end(closeStreamMessage?.toString());
-    if (this.fatalLogStream) {
-      this.fatalLogStream?.end((customFatalMessage ?? closeStreamMessage)?.toString());
-      // rename the file from fatal-latest.log to fatal-<timestamp>.log
-      fs.renameSync(
-        Path.resolve(this.fileProperties.logFolderPath, 'fatal-crash', `fatal-latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`),
-        Path.resolve(this.fileProperties.logFolderPath, 'fatal-crash', `fatal-${this.getTime(true, true)}.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`),
-      );
-    }
+    this.writeToAllStreams(closeStreamMessage ?? '', customFatalMessage);
+    this.latestFileStream?.end();
+    this.debugLogStream?.end();
+    this.errorLogStream?.end();
   }
 
   private writeToAllStreams(message: string, customFatalLog?: string): void {
     if (this.fileProperties.enableLatestLog) this.latestFileStream?.write(message);
     if (this.fileProperties.enableDebugLog) this.debugLogStream?.write(message);
     if (this.fileProperties.enableErrorLog) this.errorLogStream?.write(message);
-    if (this.fileProperties.enableFatalLog) this.fatalLogStream?.write(customFatalLog ?? message);
+    if (this.fileProperties.enableFatalLog && customFatalLog) {
+      // create a new stream for fatal log
+      // 4 random alphanumeric characters
+      const uniqueId = Math.random().toString(36).substring(2, 6);
+      const fatalLogStream = fs.createWriteStream(
+        Path.join(this.fileProperties.logFolderPath, 'fatal-crash', `fatal-${uniqueId}-${this.getTime(true, true)}.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`),
+      );
+      fatalLogStream.write(this.defaultHeader);
+      fatalLogStream.end(customFatalLog);
+    }
   }
 
   private compressLastSessionLogs(): void {
@@ -125,6 +124,11 @@ export class Logger {
     const latestLogsFiles = fs.readdirSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'));
     // files = files.concat(fatalCrashFiles.map((file) => Path.join('fatal-crash', file)));
     files = files.concat(latestLogsFiles.map((file) => Path.join('latestLogs', file)));
+    // use fs.stat on latest.log/html to get its last modified date
+    const latestLogPath = Path.join(this.fileProperties.logFolderPath, `latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`);
+    const latestLogStats = fs.statSync(latestLogPath);
+    // get mtime and replace : with - to avoid windows file system errors
+    const latestLogDate = latestLogStats.mtime.toISOString().replace(/:/g, '-').split('.')[0];
     files.forEach((file) => {
       if (file.endsWith('.log') || file.endsWith('.html')) {
         zip.addLocalFile(Path.join(this.fileProperties.logFolderPath, file));
@@ -132,8 +136,8 @@ export class Logger {
         if (!file.startsWith('fatal')) fs.unlinkSync(Path.join(this.fileProperties.logFolderPath, file));
       }
     });
-
-    fs.writeFileSync(Path.resolve(this.fileProperties.logFolderPath, `logs-${this.getTime(true, true)}.zip`), zip.toBuffer());
+    const uniqueId = Math.random().toString(36).substring(2, 6);
+    fs.writeFileSync(Path.resolve(this.fileProperties.logFolderPath, `logs-${uniqueId}-${latestLogDate}.zip`), zip.toBuffer());
   }
 
   private getFormattedPrefix(): string {
@@ -179,9 +183,7 @@ export class Logger {
 
   log(text: any, levelToLog?: ELoggerLevel, ...args: any): void {
     const level = levelToLog ?? this.defaultLevel;
-    var stackTrace = '';
     if (text instanceof Error) {
-      stackTrace = text.stack ?? '';
       text = text.toString();
     }
     text = utils.format(text, ...args);
@@ -206,32 +208,21 @@ export class Logger {
 
     // escapes the text to a be secure to be used in html
     const escapedText = escape(text.toString());
-    // escapes the stack trace and converts tabs to spaces and spaces to &nbsp; to be used in html
-    const escapedStackTrace = '<span>' + escape(stackTrace).replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;').replace(/ /g, '&nbsp;').split('\n').join('</span><span>') + '</span>';
 
     // eslint-disable-next-line max-len
     const textSpanElement = this.allLineColored ? `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] : ''}">${escapedText}</span>` : `<span style="color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor};">${escapedText}</span>`;
     // eslint-disable-next-line max-len
-    const stackTraceSpanElement = this.allLineColored ? `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] : ''}">${escapedStackTrace}</span>` : `<span style="color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor};">${escapedStackTrace}</span>`;
-    // eslint-disable-next-line max-len
     const parentSpanElement = `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] + ';' : ''}${(this.allLineColored && this.coloredBackground) ? '--txtBackground: ' + ELoggerLevelBaseColors[level] + ';' : ''}"><span class='pre'>${rawMessagePrefix}&nbsp;</span>${textSpanElement}</span>\n`;
-    // eslint-disable-next-line max-len
-    const parentStackTraceSpanElement = `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] + ';' : ''}${(this.allLineColored && this.coloredBackground) ? '--txtBackground: ' + ELoggerLevelBaseColors[level] + ';' : ''}"><span class='pre'>${rawMessagePrefix}&nbsp;</span>${stackTraceSpanElement}</span>\n`;
 
     if (this.fileProperties.enableDebugLog) {
       this.debugLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
     }
     if (this.fileProperties.enableErrorLog && level === ELoggerLevel.ERROR) {
       // eslint-disable-next-line max-len
-      this.errorLogStream?.write(this.fileProperties.generateHTMLLog ? (stackTrace ? parentStackTraceSpanElement : parentSpanElement) : (rawMessagePrefix + ' ' + (stackTrace ?? text) + '\n'));
+      this.errorLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
     }
     if (this.fileProperties.enableLatestLog && level !== ELoggerLevel.DEBUG) {
       this.latestFileStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
-    }
-    if (this.fileProperties.enableFatalLog && level !== ELoggerLevel.DEBUG) {
-      // write all logs to the fatal log file (including stack traces from non fatal logs) EXCEPT debug logs
-      // eslint-disable-next-line max-len
-      this.fatalLogStream?.write(this.fileProperties.generateHTMLLog ? (stackTrace ? parentStackTraceSpanElement : parentSpanElement) : (rawMessagePrefix + ' ' + (stackTrace ?? text) + '\n'));
     }
   }
 
@@ -256,7 +247,6 @@ export class Logger {
     var stack: string[] | undefined = [];
     var fullString = text.toString();
     if (text instanceof Error) {
-      // create stacktrace
       stack = text.stack?.split('\n');
       if (stack) {
         fullString = stack.join('\n');

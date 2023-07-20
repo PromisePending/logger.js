@@ -7,7 +7,8 @@
   "scripts": {
     "build": "npx tsc -p .",
     "pdeploy": "node scripts/prepareDeploy.js",
-    "test": "node src/tests/tester.js"
+    "test": "node src/tests/tester.js",
+    "pretest": "npm run build"
   },
   "repository": {
     "type": "git",

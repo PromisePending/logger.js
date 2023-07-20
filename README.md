@@ -10,6 +10,9 @@
   <a href="">
     <img src="https://img.shields.io/github/license/PromisePending/logger.js?style=flat-square&color=0394fc&label=Licen%C3%A7a" alt="License" />
   </a>
+  <a href="https://discord.gg/qUMUJW2XgF">
+    <img src="https://img.shields.io/discord/866707606433562634?style=flat-square&color=7289da&logo=discord&logoColor=FFFFFF"/>
+  </a>
 </p>
 
 #
