@@ -10,6 +10,9 @@
   <a href="">
     <img src="https://img.shields.io/github/license/PromisePending/logger.js?style=flat-square&color=0394fc&label=Licen%C3%A7a" alt="License" />
   </a>
+  <a href="https://discord.gg/qUMUJW2XgF">
+    <img src="https://img.shields.io/discord/866707606433562634?style=flat-square&color=7289da&logo=discord&logoColor=FFFFFF"/>
+  </a>
 </p>
 
 #
@@ -85,6 +88,10 @@ logger.debug('This is a debug message');
 logger.fatal('This is a fatal message');
 ```
 
+### Results:
+
+<img alt="The result of the above logs in a windows command prompt" src="https://raw.githubusercontent.com/PromisePending/logger.js/release/.github/assets/LoggerExample.png">
+
 <br>
 
 <h2 align="center">📝 License</h2>
@@ -119,7 +126,7 @@ logger.fatal('This is a fatal message');
   <tr>
     <td align="center">
       <a href="https://github.com/LoboMetalurgico">
-        <img src="https://avatars.githubusercontent.com/u/43734867?v=4" width="100px;" alt=""/>
+        <img src="https://avatars.githubusercontent.com/u/43734867?v=4" width="100px;" alt="LoboMetlurgico's GitHub profile logo"/>
         <br />
         <sub>
           <b>LoboMetalurgico</b>
@@ -128,7 +135,7 @@ logger.fatal('This is a fatal message');
     </td>
     <td align="center">
       <a href="https://github.com/emanuelfranklyn">
-        <img src="https://avatars.githubusercontent.com/u/44732812?v=4" width="100px;" alt=""/>
+        <img src="https://avatars.githubusercontent.com/u/44732812?v=4" width="100px;" alt="SpaceFox's GitHub profile logo"/>
         <br />
         <sub>
           <b>SpaceFox</b>

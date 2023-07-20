@@ -1,13 +1,14 @@
 {
   "name": "@promisepending/logger.js",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A better logger",
   "main": "build/index.js",
   "types": "src/main/index.ts",
   "scripts": {
     "build": "npx tsc -p .",
     "pdeploy": "node scripts/prepareDeploy.js",
-    "test": "node src/tests/tester.js"
+    "test": "node src/tests/tester.js",
+    "pretest": "npm run build"
   },
   "repository": {
     "type": "git",
