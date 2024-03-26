@@ -1,300 +1,269 @@
-import { ILoggerOptions, ELoggerLevel, ILoggerFileProperties, ELoggerLevelNames, ELoggerLevelBaseColors, ELoggerLevelAlternateColors } from './interfaces';
-import escape from 'escape-html';
-import admZip from 'adm-zip';
-import chalk from 'chalk';
-import Path from 'path';
-import fs from 'fs';
+import { ELoggerLevel, EStyles, ILogMessage, IMessageChunk } from './interfaces/ILogMessage';
+import { ILoggerOptions, IPrefix } from './interfaces';
+import { Engine } from './outputEngines/engine';
 import utils from 'util';
+import { IDefault } from './interfaces/IDefault';
+import Standard from './defaults/standard';
 
 export class Logger {
-  private defaultLevel: ELoggerLevel = ELoggerLevel.LOG;
-  private debugActive = false;
-  private prefix?: string;
-  private coloredBackground: boolean;
+  private defaultLevel: ELoggerLevel = ELoggerLevel.INFO;
+  private prefixes: IPrefix[];
   private disableFatalCrash: boolean;
+  private logListeners: Engine[] = [];
+  private redactedContent: string[];
+  private coloredBackground: boolean;
   private allLineColored: boolean;
-  private fileProperties: ILoggerFileProperties;
-  private latestFileStream?: fs.WriteStream;
-  private debugLogStream?: fs.WriteStream;
-  private errorLogStream?: fs.WriteStream;
-  private htmlBackgroundColor: string;
-  private htmlTextColor: string;
-  private defaultHeader = '';
+  private defaultSettings: IDefault;
 
-  constructor({ prefix, debug, defaultLevel, coloredBackground, disableFatalCrash, allLineColored, fileProperties }: ILoggerOptions) {
-    this.prefix = prefix ?? '';
-    this.debugActive = debug ?? false;
+  constructor({ prefixes, defaultLevel, disableFatalCrash, redactedContent, allLineColored, coloredBackground, defaultSettings }: ILoggerOptions) {
     this.defaultLevel = defaultLevel ?? ELoggerLevel.INFO;
-    this.coloredBackground = coloredBackground ?? false;
     this.disableFatalCrash = disableFatalCrash ?? false;
+    this.redactedContent = redactedContent ?? [];
+
     this.allLineColored = allLineColored ?? false;
+    this.coloredBackground = coloredBackground ?? false;
+    this.defaultSettings = defaultSettings ?? Standard;
 
-    this.htmlBackgroundColor = '#0a002b';
-    this.htmlTextColor = '#ffffff';
-
-    this.fileProperties = {
-      enable: false,
-      logFolderPath: Path.join(__dirname, 'logs'),
-      enableLatestLog: true,
-      enableDebugLog: false,
-      enableErrorLog: false,
-      enableFatalLog: true,
-      generateHTMLLog: false,
-      compressLogFilesAfterNewExecution: true,
-    };
-
-    this.fileProperties = { ...this.fileProperties, ...fileProperties ?? {} };
-
-    if (this.fileProperties.enable) {
-      // create log folder if not exists
-      if (!fs.existsSync(this.fileProperties.logFolderPath)) fs.mkdirSync(this.fileProperties.logFolderPath);
-      else this.compressLastSessionLogs();
-
-      // creates folders for fatal-crash and latest logs
-      if (!fs.existsSync(Path.join(this.fileProperties.logFolderPath, 'fatal-crash'))) fs.mkdirSync(Path.join(this.fileProperties.logFolderPath, 'fatal-crash'));
-      if (!fs.existsSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'))) fs.mkdirSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'));
-
-      // eslint-disable-next-line max-len
-      this.defaultHeader = `<body style="--txtBackground: ${this.htmlBackgroundColor}; color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor}; margin: 0;padding: 0.25rem;display:flex;flex-direction:column;"><style>* {padding: 0.15rem 0;} body > span {position: relative;display: flex;flex-direction: row;} span > span {height: 100%;display: block;padding: 0;width: 100%;box-shadow: 0 0 0 0.16rem var(--txtBackground)} .pre {width: fit-content;white-space: nowrap;box-shadow: none;}</style>\n`;
-
-      if (this.fileProperties.enableLatestLog) {
-        this.latestFileStream = fs.createWriteStream(
-          Path.join(this.fileProperties.logFolderPath, `latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
-        );
-        if (this.fileProperties.generateHTMLLog) this.latestFileStream.write(this.defaultHeader);
-      }
-      if (this.fileProperties.enableDebugLog) {
-        this.debugLogStream = fs.createWriteStream(
-          Path.join(this.fileProperties.logFolderPath, 'latestLogs', `debug.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
-        );
-        if (this.fileProperties.generateHTMLLog) this.debugLogStream.write(this.defaultHeader);
-      }
-      if (this.fileProperties.enableErrorLog) {
-        this.errorLogStream = fs.createWriteStream(
-          Path.join(this.fileProperties.logFolderPath, 'latestLogs', `error.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`), { flags: 'a' },
-        );
-        if (this.fileProperties.generateHTMLLog) this.errorLogStream.write(this.defaultHeader);
-      }
-
-      // handles process exists to properly close the streams
-      process.on('exit', (exitCode) => {
-        // eslint-disable-next-line max-len
-        this.closeFileStreams(`${this.fileProperties.generateHTMLLog ? '<br>\n<span>' : '\n'}Process exited with code (${exitCode})${this.fileProperties.generateHTMLLog ? '</span>\n<br>' : '\n'}`);
-      });
-    } else {
-      this.fileProperties.enableLatestLog = false;
-      this.fileProperties.enableDebugLog = false;
-      this.fileProperties.enableErrorLog = false;
-      this.fileProperties.enableFatalLog = false;
-      this.fileProperties.generateHTMLLog = false;
-      this.fileProperties.compressLogFilesAfterNewExecution = false;
-    }
+    this.prefixes = this.parseMessagePrefix(prefixes);
   }
 
-  private closeFileStreams(closeStreamMessage?: string, customFatalMessage?: string): void {
-    this.writeToAllStreams(closeStreamMessage ?? '', customFatalMessage);
-    this.latestFileStream?.end();
-    this.debugLogStream?.end();
-    this.errorLogStream?.end();
+  private parseMessagePrefix(prefixes: (IPrefix | string)[]): IPrefix[] {
+    if (!prefixes || prefixes.length === 0) return [];
+    return prefixes.map((prefix) => {
+      if (typeof prefix !== 'string') return prefix;
+      return {
+        content: prefix,
+        color: this.defaultSettings.prefixMainColor,
+        backgroundColor: null,
+      };
+    });
   }
 
-  private writeToAllStreams(message: string, customFatalLog?: string): void {
-    if (this.fileProperties.enableLatestLog) this.latestFileStream?.write(message);
-    if (this.fileProperties.enableDebugLog) this.debugLogStream?.write(message);
-    if (this.fileProperties.enableErrorLog) this.errorLogStream?.write(message);
-    if (this.fileProperties.enableFatalLog && customFatalLog) {
-      // create a new stream for fatal log
-      // 4 random alphanumeric characters
-      const uniqueId = Math.random().toString(36).substring(2, 6);
-      const fatalLogStream = fs.createWriteStream(
-        Path.join(this.fileProperties.logFolderPath, 'fatal-crash', `fatal-${uniqueId}-${this.getTime(true, true)}.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`),
-      );
-      fatalLogStream.write(this.defaultHeader);
-      fatalLogStream.end(customFatalLog);
-    }
-  }
-
-  private compressLastSessionLogs(): void {
-    if (!this.fileProperties.compressLogFilesAfterNewExecution) return;
-
-    const zip = new admZip();
-
-    var files = fs.readdirSync(this.fileProperties.logFolderPath);
-    // const fatalCrashFiles = fs.readdirSync(Path.join(this.fileProperties.logFolderPath, 'fatal-crash'));
-    const latestLogsFiles = fs.readdirSync(Path.join(this.fileProperties.logFolderPath, 'latestLogs'));
-    // files = files.concat(fatalCrashFiles.map((file) => Path.join('fatal-crash', file)));
-    files = files.concat(latestLogsFiles.map((file) => Path.join('latestLogs', file)));
-    // use fs.stat on latest.log/html to get its last modified date
-    const latestLogPath = Path.join(this.fileProperties.logFolderPath, `latest.${this.fileProperties.generateHTMLLog ? 'html' : 'log'}`);
-    const latestLogStats = fs.statSync(latestLogPath);
-    // get mtime and replace : with - to avoid windows file system errors
-    const latestLogDate = latestLogStats.mtime.toISOString().replace(/:/g, '-').split('.')[0];
-    files.forEach((file) => {
-      if (file.endsWith('.log') || file.endsWith('.html')) {
-        zip.addLocalFile(Path.join(this.fileProperties.logFolderPath, file));
-        // don't delete fatal-crash logs
-        if (!file.startsWith('fatal')) fs.unlinkSync(Path.join(this.fileProperties.logFolderPath, file));
+  private redactText(text: string): string {
+    let modifiedString = text;
+    this.redactedContent.forEach((redaction) => {
+      const reg = new RegExp(redaction, 'gi');
+      const matches = modifiedString.matchAll(reg);
+      let accumulator = 0;
+      for (const match of matches) {
+        if (typeof match.index !== 'number') continue;
+        modifiedString =
+          `${modifiedString.slice(0, match.index + accumulator)}${this.defaultSettings.redactionText}${modifiedString.slice(match.index + match[0].length + accumulator)}`;
+        accumulator += this.defaultSettings.redactionText.length - match[0].length;
       }
     });
-    const uniqueId = Math.random().toString(36).substring(2, 6);
-    fs.writeFileSync(Path.resolve(this.fileProperties.logFolderPath, `logs-${uniqueId}-${latestLogDate}.zip`), zip.toBuffer());
+    return modifiedString;
   }
 
-  private getFormattedPrefix(): string {
-    var prefix = '';
-    prefix += chalk.hex('#5c5c5c')('[');
-    prefix += chalk.gray(this.prefix);
-    prefix += chalk.hex('#5c5c5c')(']');
-
-    return this.prefix !== '' ? prefix : '';
-  }
-
-  private getTime(fullDate?: boolean, friendlySymbols?: boolean): string {
-    const time = new Date(Date.now());
-    const day = time.getDate() < 10 ? '0' + time.getDate() : time.getDate();
-    const month = time.getMonth() < 10 ? '0' + time.getMonth() : time.getMonth();
-    const year = time.getFullYear();
-    const seconds = time.getSeconds() < 10 ? '0' + time.getSeconds() : time.getSeconds();
-    const minutes = time.getMinutes() < 10 ? '0' + time.getMinutes() : time.getMinutes();
-    const hours = time.getHours() < 10 ? '0' + time.getHours() : time.getHours();
-
-    // eslint-disable-next-line max-len
-    return `${friendlySymbols ? '' : '['}${fullDate ? day : ''}${fullDate ? (friendlySymbols ? '-' : ':') : ''}${fullDate ? month : ''}${fullDate ? (friendlySymbols ? '-' : ':') : ''}${fullDate ? year : ''}${fullDate ? (friendlySymbols ? 'T' : '-') : ''}${hours}${friendlySymbols ? '-' : ':'}${minutes}${friendlySymbols ? '-' : ':'}${seconds}${friendlySymbols ? '' : ']'}`;
-  }
-
-  private generateMessagePrefix(level: ELoggerLevel): { coloredMessagePrefix: string; rawMessagePrefix: string, textColor: string } {
-    const fgColor = [ELoggerLevelBaseColors[level], ELoggerLevelAlternateColors[level]];
-    var time = chalk.hex(fgColor[Number(this.coloredBackground)])(this.getTime() + ' ');
-    var prefix = chalk.hex(fgColor[Number(this.coloredBackground)])(this.getFormattedPrefix() + ' ');
-    var levelText = chalk.hex(fgColor[Number(this.coloredBackground)])(ELoggerLevelNames[level].toUpperCase() + ':');
-
-    if (this.coloredBackground) {
-      time = chalk.bgHex(ELoggerLevelBaseColors[level])(time);
-      prefix = chalk.bgHex(ELoggerLevelBaseColors[level])(prefix);
-      levelText = chalk.bgHex(ELoggerLevelBaseColors[level])(levelText);
+  /**
+   * Parses the message and returns an array of IMessageChunk objects
+   * the first IMessageChunk object is the main message, the rest are subLines
+   * @param text - The content to be parsed
+   * @param args - The arguments to be passed to the content
+   * @returns IMessageChunk[]
+   */
+  private processMessage(text: string | string[] | Error, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
+    if (!text) {
+      return [{
+        content: 'undefined',
+        styling: [EStyles.textColor],
+        stylingParams: [this.defaultSettings.undefinedColor],
+        subLine: forceSubline,
+      }];
     }
 
-    return {
-      coloredMessagePrefix: `${time}${prefix}${levelText}`,
-      rawMessagePrefix: `${this.getTime()} [${this.prefix}] ${ELoggerLevelNames[level].toUpperCase()}:`,
-      textColor: fgColor[Number(this.coloredBackground)],
-    };
-  }
+    // String handling
+    if (typeof text !== 'object') {
+      return [...text.toString().split('\n').map((line) => {
+        return {
+          content: this.redactText(utils.format(line, ...args)),
+          styling: [],
+          stylingParams: [],
+          subLine: forceSubline,
+        };
+      })];
 
-  log(text: any, levelToLog?: ELoggerLevel, ...args: any): void {
-    const level = levelToLog ?? this.defaultLevel;
-    if (text instanceof Error) {
-      text = text.toString();
-    }
-    text = utils.format(text, ...args);
-    if (level === ELoggerLevel.FATAL) return this.fatal(text, ...args);
-    const consoleLevels = {
-      [ELoggerLevel.INFO]: console.log,
-      [ELoggerLevel.WARN]: console.warn,
-      [ELoggerLevel.ERROR]: console.error,
-      [ELoggerLevel.DEBUG]: console.debug,
-    };
+    // Error handling
+    } else if (text instanceof Error) {
+      const finalMessage = [];
+      finalMessage.push({
+        content: (forceSubline ? 'Error: ' : '') + this.redactText(utils.format(text.message, ...args)),
+        styling: [],
+        stylingParams: [],
+        subLine: forceSubline,
+      });
 
-    const { coloredMessagePrefix, rawMessagePrefix, textColor } = this.generateMessagePrefix(level);
+      const stack = text.stack?.split('\n');
+      stack?.shift();
 
-    const messageToConsole = (this.coloredBackground && this.allLineColored)
-      ? chalk.bgHex(ELoggerLevelBaseColors[level])(chalk.hex(ELoggerLevelAlternateColors[level])(' ' + text))
-      : (this.allLineColored ? chalk.hex(ELoggerLevelBaseColors[level])(' ' + text) : ' ' + text)
-    ;
+      stack?.forEach((line) => {
+        finalMessage.push({
+          content: this.redactText(line.trim()),
+          styling: [],
+          stylingParams: [],
+          subLine: true,
+        });
+      });
 
-    if ((this.debugActive && level === ELoggerLevel.DEBUG) || (level !== ELoggerLevel.DEBUG)) {
-      consoleLevels[level](coloredMessagePrefix + messageToConsole);
-    }
+      if (text.cause) {
+        const causedBy = {
+          content: '# Caused by:',
+          styling: [EStyles.specialSubLine],
+          stylingParams: [''],
+          subLine: true,
+        };
 
-    // escapes the text to a be secure to be used in html
-    const escapedText = escape(text.toString());
+        if (this.defaultSettings.causedByBackgroundColor) {
+          causedBy.styling.push(EStyles.backgroundColor);
+          causedBy.stylingParams.push(this.defaultSettings.causedByBackgroundColor);
+        }
+        if (this.defaultSettings.causedByTextColor) {
+          causedBy.styling.push(EStyles.textColor);
+          causedBy.stylingParams.push(this.defaultSettings.causedByTextColor);
+        }
 
-    // eslint-disable-next-line max-len
-    const textSpanElement = this.allLineColored ? `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] : ''}">${escapedText}</span>` : `<span style="color: ${this.htmlTextColor}; background: ${this.htmlBackgroundColor};">${escapedText}</span>`;
-    // eslint-disable-next-line max-len
-    const parentSpanElement = `<span style="color: ${textColor}; ${this.coloredBackground ? 'background: ' + ELoggerLevelBaseColors[level] + ';' : ''}${(this.allLineColored && this.coloredBackground) ? '--txtBackground: ' + ELoggerLevelBaseColors[level] + ';' : ''}"><span class='pre'>${rawMessagePrefix}&nbsp;</span>${textSpanElement}</span>\n`;
+        finalMessage.push(causedBy);
 
-    if (this.fileProperties.enableDebugLog) {
-      this.debugLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
-    }
-    if (this.fileProperties.enableErrorLog && level === ELoggerLevel.ERROR) {
-      // eslint-disable-next-line max-len
-      this.errorLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
-    }
-    if (this.fileProperties.enableLatestLog && level !== ELoggerLevel.DEBUG) {
-      this.latestFileStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
-    }
-  }
-
-  info(text: any, ...args: any): void {
-    this.log(text, ELoggerLevel.INFO, ...args);
-  }
-
-  warn(text: any, ...args: any): void {
-    this.log(text, ELoggerLevel.WARN, ...args);
-  }
-
-  error(text: any, ...args: any): void {
-    this.log(text, ELoggerLevel.ERROR, ...args);
-  }
-
-  debug(text: any, ...args: any): void {
-    this.log(text, ELoggerLevel.DEBUG, ...args);
-  }
-
-  fatal(text: any, ...args: any): void {
-    var message = text.toString();
-    var stack: string[] | undefined = [];
-    var fullString = text.toString();
-    if (text instanceof Error) {
-      stack = text.stack?.split('\n');
-      if (stack) {
-        fullString = stack.join('\n');
-        message = stack.shift() ?? '';
+        if (typeof text.cause === 'string' || Array.isArray(text.cause) || text.cause instanceof Error) {
+          finalMessage.push(...this.processMessage(text.cause, true, ...args));
+        } else {
+          finalMessage.push({
+            content: this.redactText(JSON.stringify(text.cause)),
+            styling: [],
+            stylingParams: [],
+            subLine: true,
+          });
+        }
       }
+      return finalMessage;
+    } else if (!Array.isArray(text) || (Array.isArray(text) && (!args || args.length === 0))) {
+      return [{
+        content: this.redactText(utils.format(text, ...args)),
+        styling: [EStyles.specialSubLine, EStyles.reset],
+        stylingParams: ['', ''],
+        subLine: true,
+      }];
     }
 
-    message = utils.format(message, ...args);
+    const finalMessage: (IMessageChunk & {subLine: boolean})[] = [];
 
-    const time = this.getTime();
-    const prefix = this.getFormattedPrefix();
-    const levelMsg = text.toString().startsWith('Error') ? ELoggerLevelNames[3] : `${ELoggerLevelNames[3]} ${ELoggerLevelNames[2]}:`;
+    let switchedToSublines = forceSubline;
+    text.forEach((line, index) => {
+      const variable = args[index];
+      if (line) {
+        finalMessage.push({
+          content: this.redactText(line.toString()),
+          styling: [EStyles.specialSubLine],
+          stylingParams: [''],
+          subLine: switchedToSublines,
+        });
+      }
+      if (variable) {
+        const chunks = this.processMessage(variable, switchedToSublines);
+        chunks[0].styling.push(...this.defaultSettings.variableStyling);
+        chunks[0].stylingParams.push(...this.defaultSettings.variableStylingParams);
+        if (!forceSubline && chunks.find((sublineFinder) => sublineFinder.subLine)) switchedToSublines = true;
+        finalMessage.push(...chunks);
+      }
+    });
 
-    message = `${time} ${prefix} ${levelMsg} ${message.toString()}${stack ? '\n' + stack.join('\n') : ''}`;
+    return finalMessage;
+  }
 
-    const msg = chalk.bgWhite(chalk.redBright(message));
+  private handleMessage(text: string | string[] | Error, level: ELoggerLevel, ...args: any[]): void {
+    const chunks = this.processMessage(text, false, ...args);
+    const messageChunks: IMessageChunk[] = [];
+    const subLines: IMessageChunk[] = [];
 
-    var escapedFullText = escape(fullString);
-    const escapedText = escape(text.toString());
+    chunks.forEach((chunk) => {
+      if (chunk.subLine) subLines.push(chunk);
+      else {
+        if (level === ELoggerLevel.FATAL) {
+          chunk.styling.unshift(EStyles.textColor, EStyles.backgroundColor);
+          chunk.stylingParams.unshift(this.defaultSettings.logLevelAccentColors[level], this.defaultSettings.logLevelMainColors[level]);
+        }
+        if (this.allLineColored) {
+          const txtColor = this.coloredBackground ? this.defaultSettings.logLevelAccentColors[level] : this.defaultSettings.logLevelMainColors[level];
+          const bgColor = this.coloredBackground ? this.defaultSettings.logLevelMainColors[level] : this.defaultSettings.logLevelAccentColors[level];
+          if (txtColor) {
+            chunk.styling.unshift(EStyles.textColor);
+            chunk.stylingParams.unshift(txtColor);
+          }
+          if (bgColor) {
+            chunk.styling.unshift(EStyles.backgroundColor);
+            chunk.stylingParams.unshift(bgColor);
+          }
+        }
+        messageChunks.push(chunk);
+      }
+    });
 
-    // convert tabs to html
-    escapedFullText = escapedFullText.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-    escapedFullText = escapedFullText.replace(/ /g, '&nbsp;');
+    const message: ILogMessage = {
+      messageChunks,
+      subLines,
+      prefixes: this.prefixes,
+      timestamp: new Date(),
+      logLevel: level,
+      settings: {
+        coloredBackground: this.coloredBackground,
+        default: this.defaultSettings,
+      },
+    };
 
-    const splitFullEscapedText = escapedFullText.split('\n');
-    const htmlFullText = '<span>' + splitFullEscapedText.join('</span><span>') + '</span>';
+    this.logListeners.forEach((logListener) => {
+      logListener.log(message);
+    });
+  }
 
-    const textSpan = `<span style="color: ${ELoggerLevelAlternateColors[3]}; background: ${ELoggerLevelBaseColors[3]};">${escapedText}</span>`;
-    const fullSpan = `<span style="color: ${ELoggerLevelAlternateColors[3]}; background: ${ELoggerLevelBaseColors[3]};">${htmlFullText}</span>`;
-    // eslint-disable-next-line max-len
-    const prefixSpan = `<span style="color: ${ELoggerLevelAlternateColors[3]}; background: ${ELoggerLevelBaseColors[3]};--txtBackground: ${ELoggerLevelBaseColors[3]};"><span class='pre'>${time} [${this.prefix}] ${levelMsg}&nbsp;</span>${textSpan}</span>\n`;
-    // eslint-disable-next-line max-len
-    const fullPrefixSpan = `<span style="color: ${ELoggerLevelAlternateColors[3]}; background: ${ELoggerLevelBaseColors[3]};--txtBackground: ${ELoggerLevelBaseColors[3]};"><span class='pre'>${time} [${this.prefix}] ${levelMsg}&nbsp;</span>${fullSpan}</span>\n`;
+  log(text: string | string[], ...args: any[]): void {
+    this.handleMessage(text, this.defaultLevel, ...args);
+  }
 
-    // eslint-disable-next-line max-len
-    const finalMessage = (this.fileProperties.generateHTMLLog ? prefixSpan : (time + ' [' + this.prefix + '] ' + levelMsg + ' ' + text + '\n')) + 'Please check the fatal log file for more details.\n';
-    const finalFatalMessage = this.fileProperties.generateHTMLLog ? fullPrefixSpan : (time + ' [' + this.prefix + '] ' + levelMsg + ' ' + fullString + '\n');
+  info(text: string | string[], ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.INFO, ...args);
+  }
 
-    if (this.disableFatalCrash) {
-      this.writeToAllStreams(finalMessage, finalFatalMessage);
-    } else {
-      this.closeFileStreams(finalMessage, finalFatalMessage);
-    }
+  warn(text: string | string[], ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.WARN, ...args);
+  }
 
-    console.error(msg);
+  error(text: string | string[] | Error, ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.ERROR, ...args);
+  }
 
-    if (!this.disableFatalCrash) {
-      process.exit(5);
-    }
+  debug(text: string | string[], ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.DEBUG, ...args);
+  }
+
+  fatal(text: string | string[] | Error, ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.FATAL, ...args);
+  }
+
+  alert(text: string | string[], ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.ALERT, ...args);
+  }
+
+  severe(text: string | string[] | Error, ...args: any[]): void {
+    this.handleMessage(text, ELoggerLevel.SEVERE, ...args);
+  }
+
+  /**
+   * Allows the assignment of a listener callback that will be called every log made
+   * @param listenerCallback void function with the actions to be executed every log. Receives ILogMessage object.
+   */
+  registerListener(listenerEngine: Engine): void {
+    this.logListeners.push(listenerEngine);
+  }
+
+  unRegisterListener(listenerEngine: Engine): void {
+    this.logListeners = this.logListeners.filter((listener) => listener !== listenerEngine);
+  }
+
+  setColoredBackground(coloredBackground: boolean): void {
+    this.coloredBackground = coloredBackground;
+  }
+
+  setAllLineColored(allLineColored: boolean): void {
+    this.allLineColored = allLineColored;
   }
 }

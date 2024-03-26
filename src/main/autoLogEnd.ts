@@ -33,7 +33,7 @@ function exitHandler({ err, options, exitCode }: {err?: {stack: any, message: an
 }
 
 export function activate(uncaughtException?: boolean, logger?: Logger): void {
-  logger = logger ?? new Logger({ prefix: 'SYSTEM' });
+  logger = logger ?? new Logger({ prefixes: ['SYSTEM'] });
   logger?.debug('AutoLogEnd activated!');
   process.on('exit', (exitCode) => exitHandler({ exitCode, options: { uncaughtException: false } }));
   process.on('SIGINT', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGINT' }); });
