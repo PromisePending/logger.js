@@ -10,9 +10,16 @@ export interface IDefault {
   prefixMainColor: string,
   prefixAccentColor: string,
   redactionText: string,
-  undefinedColor: string,
   causedByTextColor?: string,
   causedByBackgroundColor?: string,
   variableStyling: EStyles[],
   variableStylingParams: string[],
+  primitiveColors: {
+    string: string,
+    number: string,
+    boolean: string,
+    null: string,
+    undefined: string,
+    circular: string,
+  },
 }

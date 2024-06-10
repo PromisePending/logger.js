@@ -14,51 +14,40 @@ export class ConsoleEngine extends Engine {
   };
 
   private parseTextStyles(chunk: IMessageChunk, subLine?: boolean, backgroundColor?: string, customFGColor?: string): string {
-    let finalMsg = subLine ? (backgroundColor ? chalk.bgHex(backgroundColor).gray : chalk.gray) : chalk.reset;
-    let special = false;
+    let textStyler = subLine ? (backgroundColor ? chalk.bgHex(backgroundColor).gray : chalk.gray) : chalk.reset;
     chunk.styling.forEach((style, index) => {
       switch (style) {
         case EStyles.bold:
-          finalMsg = finalMsg.bold;
+          textStyler = textStyler.bold;
           break;
         case EStyles.italic:
-          finalMsg = finalMsg.italic;
+          textStyler = textStyler.italic;
           break;
         case EStyles.backgroundColor:
-          finalMsg = finalMsg.bgHex(chunk.stylingParams[index]);
+          textStyler = textStyler.bgHex(chunk.stylingParams[index]);
           break;
         case EStyles.textColor:
-          finalMsg = finalMsg.hex(chunk.stylingParams[index]);
-          break;
-        case EStyles.specialSubLine:
-          special = true;
+          textStyler = textStyler.hex(chunk.stylingParams[index]);
           break;
         case EStyles.reset:
-          finalMsg = finalMsg.reset;
+          textStyler = textStyler.reset;
           break;
         default:
           break;
       }
     });
-    let finalMessage = '';
-    const fullLineTxt = chunk.content.padEnd(process.stdout.columns - (subLine && !special ? 3 : 0));
-    if (subLine && !special) {
-      finalMessage += (customFGColor ? (backgroundColor ? chalk.bgHex(backgroundColor) : chalk).hex(customFGColor)('|  ') : finalMsg('|  '));
-      finalMessage += (customFGColor ? finalMsg.hex(customFGColor)(fullLineTxt) : finalMsg(fullLineTxt));
-    } else if (subLine && special) {
-      finalMessage += finalMsg(fullLineTxt);
-    } else {
-      finalMessage += (customFGColor ? chalk.hex(customFGColor)(finalMsg(chunk.content)) : finalMsg(chunk.content));
-    }
-    return finalMessage;
+    const txt = subLine ? (`${!chunk.styling.includes(EStyles.specialSubLine) && chunk.breaksLine ? '|  ' : ''}${chunk.content}`) : chunk.content;
+    return (customFGColor ? textStyler.hex(customFGColor)(txt) : textStyler(txt));
   }
 
-  private parsePrefix(prefixes: IPrefix[], defaultBg?: string): (string | undefined)[] {
+  private parsePrefix(prefixes: IPrefix[], defaultBg?: string, dontSaveCache?: boolean): (string | undefined)[] {
     return prefixes.map((prefix) => {
+      // if theres cache for this prefix return it
       if (this.prefixes.has(prefix.content)) return this.prefixes.get(prefix.content);
 
-      let bgColor = '';
-      let bgColorArray: string[] = [];
+      // calculates the backgroundColor for the prefix
+      let bgColor = ''; // used if single color background color
+      let bgColorArray: string[] = []; // used if multiple background colors
       if (prefix.backgroundColor && !Array.isArray(prefix.backgroundColor)) {
         if (typeof prefix.backgroundColor === 'function') {
           const result = prefix.backgroundColor(prefix.content);
@@ -71,8 +60,9 @@ export class ConsoleEngine extends Engine {
         bgColorArray = prefix.backgroundColor;
       }
 
-      let fgColor = '';
-      let fgArray: string[] = [];
+      // calculates the text color for the prefix
+      let fgColor = ''; // used if single color
+      let fgArray: string[] = []; // used if different colors for different characters
       if (!Array.isArray(prefix.color)) {
         if (typeof prefix.color === 'function') {
           const result = prefix.color(prefix.content);
@@ -88,12 +78,12 @@ export class ConsoleEngine extends Engine {
       // static colors
       if (bgColor && fgColor) {
         const result = chalk.bgHex(bgColor).hex(fgColor)(prefix.content);
-        this.prefixes.set(prefix.content, result);
+        if (!dontSaveCache) this.prefixes.set(prefix.content, result);
         return result;
       }
       if (!bgColor && bgColorArray.length <= 0 && fgColor) {
         const result = (defaultBg ? chalk.bgHex(defaultBg) : chalk).hex(fgColor)(prefix.content);
-        this.prefixes.set(prefix.content, result);
+        if (!dontSaveCache) this.prefixes.set(prefix.content, result);
         return result;
       }
 
@@ -119,38 +109,37 @@ export class ConsoleEngine extends Engine {
           else finalMsg += (defaultBg ? chalk.bgHex(defaultBg) : chalk).hex(color)(prefix.content[index]);
         });
       }
-      this.prefixes.set(prefix.content, finalMsg);
+
+      // saves to cache
+      if (!dontSaveCache) this.prefixes.set(prefix.content, finalMsg);
       return finalMsg;
     });
   }
 
+  /**
+   * Logs a message to the console
+   * @param message The message to be logged
+   * @returns void
+   */
   log(message: ILogMessage): void {
     if (!this.debug && message.logLevel === ELoggerLevel.DEBUG) return;
 
     const defaultSettings = message.settings.default;
-    const shouldColorBg = message.settings.coloredBackground || message.logLevel === ELoggerLevel.FATAL;
+    const isFatal = message.logLevel === ELoggerLevel.FATAL;
+    const shouldColorBg = message.settings.coloredBackground || isFatal;
+    const currentMainColor = shouldColorBg ? defaultSettings.logLevelMainColors[message.logLevel] : undefined;
+    const currentAccentColor = shouldColorBg ? defaultSettings.logLevelAccentColors[message.logLevel] : undefined;
 
+    // clears prefixes cache in order to apply correct background color
     if (shouldColorBg) this.prefixes.clear();
 
-    let formatter: chalk.Chalk = chalk.reset;
-    if (shouldColorBg) formatter = formatter.bgHex(defaultSettings.logLevelMainColors[message.logLevel]);
+    let styleText = currentMainColor ? chalk.bgHex(currentMainColor) : chalk.reset;
+    styleText = !shouldColorBg ? styleText.hex(defaultSettings.logLevelMainColors[message.logLevel]) : (currentAccentColor ? styleText.hex(currentAccentColor) : styleText);
 
-    if (shouldColorBg && defaultSettings.logLevelAccentColors[message.logLevel]) formatter = formatter.hex(defaultSettings.logLevelAccentColors[message.logLevel]);
+    const timestamp = styleText(this.getTime(message.timestamp));
 
-    if (!message.settings.coloredBackground && message.logLevel !== ELoggerLevel.FATAL) formatter = formatter.hex(defaultSettings.logLevelMainColors[message.logLevel]);
-    const timestamp = formatter(this.getTime(message.timestamp));
-
-    const prefixes = this.parsePrefix(message.prefixes, shouldColorBg ? defaultSettings.logLevelMainColors[message.logLevel] : undefined);
-
-    if (message.logLevel === ELoggerLevel.FATAL) this.prefixes.clear();
-
-    let prefixTxt = '';
-    prefixes.forEach((prefix) => {
-      prefixTxt += formatter(' [');
-      prefixTxt += prefix;
-      prefixTxt += formatter(']');
-    });
-    const level = formatter(` ${ELoggerLevelNames[message.logLevel]}:`);
+    const prefixes = this.parsePrefix(message.prefixes, currentMainColor, isFatal).map((prefix) => `${styleText(' [')}${prefix}${styleText(']')}`).join('');
+    const logKind = styleText(` ${ELoggerLevelNames[message.logLevel]}:`);
 
     // adds a space before the first chunk to separate the message from the : in the log without coloring the background if allLineColored is false
     const firstChunk = message.messageChunks[0];
@@ -159,33 +148,50 @@ export class ConsoleEngine extends Engine {
       styling: firstChunk.styling,
       stylingParams: firstChunk.stylingParams,
       subLine: false,
+      breaksLine: false,
     });
 
-    const txt = message.messageChunks.map((chunk): string => this.parseTextStyles(chunk, false, shouldColorBg ? defaultSettings.logLevelMainColors[message.logLevel] : undefined));
+    const parsedText = message.messageChunks.map((chunk): string => this.parseTextStyles(chunk, false, currentMainColor)).join('');
 
-    this.consoleLoggers[message.logLevel](`${timestamp}${prefixTxt}${level}${txt.join('')}`);
+    // writes the final log into the console
+    this.consoleLoggers[message.logLevel](`${timestamp}${prefixes}${logKind}${parsedText}`);
 
     if (!message.subLines || message.subLines.length <= 0) return;
 
-    message.subLines.forEach((line) =>
-      this.consoleLoggers[message.logLevel](this.parseTextStyles(
-        line,
-        true,
-        shouldColorBg ? defaultSettings.logLevelMainColors[message.logLevel] : undefined,
-        shouldColorBg ? defaultSettings.logLevelAccentColors[message.logLevel] : undefined,
-      )),
-    );
+    const subLinesBuffer: string[] = [];
+    let lineBuffer = '';
+    let lineSizeBuffer = 0;
+    message.subLines.forEach((line, index, arr) => {
+      lineBuffer += this.parseTextStyles(line, true, currentMainColor, currentAccentColor);
+      lineSizeBuffer += line.content.length;
+      if (arr[index + 1]?.breaksLine || index === arr.length - 1) {
+        const spaceFill = ''.padEnd(process.stdout.columns - lineSizeBuffer - 3);
+        subLinesBuffer.push(lineBuffer + this.parseTextStyles({
+          content: spaceFill,
+          styling: line.styling,
+          stylingParams: line.stylingParams,
+          subLine: true,
+          breaksLine: false,
+        }, true, currentMainColor, currentAccentColor));
+        lineBuffer = '';
+        lineSizeBuffer = 0;
+      }
+    });
+    this.consoleLoggers[message.logLevel](subLinesBuffer.join('\n'));
 
+    // prints an indication at the end of the sublines
     this.consoleLoggers[message.logLevel](
       this.parseTextStyles(
         {
           content: '#'.padEnd(process.stdout.columns, '-'),
-          styling: [EStyles.specialSubLine, EStyles.textColor],
-          stylingParams: ['', defaultSettings.logLevelAccentColors[message.logLevel] || '#ffffff'],
+          styling: [EStyles.specialSubLine],
+          stylingParams: [''],
           subLine: true,
+          breaksLine: false,
         },
         true,
-        shouldColorBg ? defaultSettings.logLevelMainColors[message.logLevel] : undefined,
+        currentMainColor,
+        currentAccentColor,
       ),
     );
   }

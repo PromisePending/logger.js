@@ -19,9 +19,16 @@ export default {
   prefixMainColor: '#777777',
   prefixAccentColor: '#000000',
   redactionText: '[REDACTED]',
-  undefinedColor: '#5555aa',
   causedByTextColor: '#ffffff',
   causedByBackgroundColor: '#ff0000',
   variableStyling: [EStyles.bold, EStyles.textColor],
   variableStylingParams: ['', '#55ff55'],
+  primitiveColors: {
+    string: '#ff5555',
+    number: '#55ff55',
+    boolean: '#5555ff',
+    null: '#555555',
+    undefined: '#005500',
+    circular: '#ff5555',
+  },
 } as IDefault;

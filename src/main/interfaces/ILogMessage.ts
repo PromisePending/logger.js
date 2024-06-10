@@ -32,6 +32,7 @@ export interface IMessageChunk {
   styling: EStyles[];
   stylingParams: string[];
   subLine: boolean;
+  breaksLine: boolean;
 }
 
 export interface ILogMessage {
