@@ -22,12 +22,14 @@ export class FileStorageEngine extends Engine {
   private errorLogFolderPath: string;
   private fatalLogFolderPath: string;
   private logQueue: {txt: string, level: ELoggerLevel}[] = [];
+  private logCallbackQueue: (() => void)[] = [];
   private logQueueRunning = false;
 
   constructor(settings: IFileStorageSettings, ...loggers: Logger[]) {
     super(settings, ...loggers);
     if (!settings) throw new Error('settings is required');
     this.engineSettings = settings;
+    if (!this.engineSettings.logFolderPath) throw new Error('logFolderPath is required');
     this.engineSettings.logFolderPath = path.resolve(this.engineSettings.logFolderPath); // resolve path to absolute path
     this.debugLogFolderPath = path.resolve(this.engineSettings.logFolderPath, 'debug');
     this.errorLogFolderPath = path.resolve(this.engineSettings.logFolderPath, 'error');
@@ -38,11 +40,10 @@ export class FileStorageEngine extends Engine {
     AutoLogEnd._instance?.appendDeconstructor(this.uuid, async () => { await this.destroy(); });
 
     // check if logFolderPath exists
-    if (!this.engineSettings.logFolderPath) throw new Error('logFolderPath is required');
     if (fs.existsSync(this.engineSettings.logFolderPath)) {
       if (!fs.lstatSync(this.engineSettings.logFolderPath).isDirectory()) throw new Error('logFolderPath is not a directory');
       // create subfolder if it doesnt exist
-      if (!fs.existsSync(this.debugLogFolderPath)) fs.mkdirSync(this.debugLogFolderPath, { recursive: true });
+      if (this.debug && !fs.existsSync(this.debugLogFolderPath)) fs.mkdirSync(this.debugLogFolderPath, { recursive: true });
       if (!fs.existsSync(this.errorLogFolderPath)) fs.mkdirSync(this.errorLogFolderPath, { recursive: true });
       if (!fs.existsSync(this.fatalLogFolderPath)) fs.mkdirSync(this.fatalLogFolderPath, { recursive: true });
 
@@ -52,7 +53,7 @@ export class FileStorageEngine extends Engine {
       if (fs.existsSync(path.resolve(this.engineSettings.logFolderPath, 'latest.log'))) {
         fs.renameSync(path.resolve(this.engineSettings.logFolderPath, 'latest.log'), path.resolve(this.engineSettings.logFolderPath, `${timestamp}.log`));
       }
-      if (fs.existsSync(path.resolve(this.debugLogFolderPath, 'latest.log'))) {
+      if (this.debug && fs.existsSync(path.resolve(this.debugLogFolderPath, 'latest.log'))) {
         fs.renameSync(path.resolve(this.debugLogFolderPath, 'latest.log'), path.resolve(this.debugLogFolderPath, `${timestamp}.log`));
       }
       if (fs.existsSync(path.resolve(this.errorLogFolderPath, 'latest.log'))) {
@@ -91,13 +92,13 @@ export class FileStorageEngine extends Engine {
       }
     } else {
       fs.mkdirSync(this.engineSettings.logFolderPath, { recursive: true });
-      fs.mkdirSync(this.debugLogFolderPath, { recursive: true });
+      if (this.debug) fs.mkdirSync(this.debugLogFolderPath, { recursive: true });
       fs.mkdirSync(this.errorLogFolderPath, { recursive: true });
       fs.mkdirSync(this.fatalLogFolderPath, { recursive: true });
     }
 
     this.latestLogStream = fs.createWriteStream(path.resolve(this.engineSettings.logFolderPath, 'latest.log'), { flags: 'a' });
-    if (this.engineSettings.enableDebugLog) this.debugLogStream = fs.createWriteStream(path.resolve(this.debugLogFolderPath, 'latest.log'), { flags: 'a' });
+    if (this.debug && this.engineSettings.enableDebugLog) this.debugLogStream = fs.createWriteStream(path.resolve(this.debugLogFolderPath, 'latest.log'), { flags: 'a' });
     if (this.engineSettings.enableErrorLog) this.errorLogStream = fs.createWriteStream(path.resolve(this.errorLogFolderPath, 'latest.log'), { flags: 'a' });
     if (this.engineSettings.enableFatalLog) this.fatalLogStream = fs.createWriteStream(path.resolve(this.fatalLogFolderPath, 'latest.log'), { flags: 'a' });
   }
@@ -107,10 +108,12 @@ export class FileStorageEngine extends Engine {
    * @returns void
    */
   async destroy(): Promise<void> {
-    this.loggers.forEach((logger) => {
-      logger.unRegisterListener(this);
+    return new Promise((resolve) => {
+      this.runLogQueue(() => {
+        this.loggers.forEach((logger) => logger.unRegisterListener(this));
+        this.closeStreams().then(() => { resolve(); });
+      });
     });
-    await this.closeStreams();
   }
 
   private parseTextStyles(chunk: IMessageChunk, subLine?: boolean): string {
@@ -135,18 +138,20 @@ export class FileStorageEngine extends Engine {
             }
             resolve();
           });
-        }
+        } else resolve();
       }));
-      promises.push(new Promise((resolve) => {
-        if (this.debugLogStream) {
-          this.debugLogStream.close(() => {
-            if (fs.existsSync(path.resolve(this.debugLogFolderPath, 'latest.log'))) {
-              fs.renameSync(path.resolve(this.debugLogFolderPath, 'latest.log'), path.resolve(this.debugLogFolderPath, `${timestamp}.log`));
-            }
-            resolve();
-          });
-        }
-      }));
+      if (this.debug) {
+        promises.push(new Promise((resolve) => {
+          if (this.debugLogStream) {
+            this.debugLogStream.close(() => {
+              if (fs.existsSync(path.resolve(this.debugLogFolderPath, 'latest.log'))) {
+                fs.renameSync(path.resolve(this.debugLogFolderPath, 'latest.log'), path.resolve(this.debugLogFolderPath, `${timestamp}.log`));
+              }
+              resolve();
+            });
+          } else resolve();
+        }));
+      }
       promises.push(new Promise((resolve) => {
         if (this.errorLogStream) {
           this.errorLogStream.close(() => {
@@ -155,7 +160,7 @@ export class FileStorageEngine extends Engine {
             }
             resolve();
           });
-        }
+        } else resolve();
       }));
       promises.push(new Promise((resolve) => {
         if (this.fatalLogStream) {
@@ -165,7 +170,7 @@ export class FileStorageEngine extends Engine {
             }
             resolve();
           });
-        }
+        } else resolve();
       }));
       Promise.all(promises).then(() => {
         _resolve();
@@ -204,12 +209,15 @@ export class FileStorageEngine extends Engine {
     await Promise.all(promises);
   }
 
-  private async runLogQueue(): Promise<void> {
-    if (this.logQueueRunning) return;
+  private async runLogQueue(finishCallback?: () => void): Promise<void> {
     if (this.logQueue.length <= 0) {
       this.logQueueRunning = false;
+      this.logCallbackQueue.forEach((callback) => callback());
+      if (finishCallback) finishCallback();
       return;
     }
+    if (finishCallback) this.logCallbackQueue.push(finishCallback);
+    if (this.logQueueRunning) return;
     this.logQueueRunning = true;
     const log = this.logQueue.shift();
     if (!log) {

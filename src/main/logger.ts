@@ -4,11 +4,18 @@ import { Engine } from './outputEngines/engine';
 import utils from 'util';
 import { IDefault } from './interfaces/IDefault';
 import Standard from './defaults/standard';
+import { AutoLogEnd } from './autoLogEnd';
 
 /**
  * Main class that will process logs before automaticly sending then to registered Engines
  */
 export class Logger {
+  // constants
+  private static splitCharsNonScape = [' ', ',', ':', '<', '>'];
+  private static splitCharsScape = ['*', '(', ')', '[', ']'];
+  private static splitChars = [...Logger.splitCharsNonScape, ...Logger.splitCharsScape];
+
+  // private fields
   private defaultLevel: ELoggerLevel = ELoggerLevel.INFO;
   private prefixes: IPrefix[];
   private disableFatalCrash: boolean;
@@ -17,6 +24,7 @@ export class Logger {
   private coloredBackground: boolean;
   private allLineColored: boolean;
   private defaultSettings: IDefault;
+  private exited = false;
 
   /**
    * @constructor
@@ -79,13 +87,13 @@ export class Logger {
 
   private colorPrimitiveValue(text: string): { text: string, colorStyles: EStyles[], colorStylesValues: string[] } {
     let color = null;
-    if (!isNaN(Number(text))) color = this.defaultSettings.primitiveColors.number;
-    else if (text === 'null') color = this.defaultSettings.primitiveColors.null;
+    if (text === 'null') color = this.defaultSettings.primitiveColors.null;
     else if (text === 'undefined') color = this.defaultSettings.primitiveColors.undefined;
     else if (text === 'true' || text === 'false') color = this.defaultSettings.primitiveColors.boolean;
     else if (
       (text.startsWith('"') && text.endsWith('"')) || (text.startsWith('\'') && text.endsWith('\'')) || (text.startsWith('`') && text.endsWith('`'))
     ) color = this.defaultSettings.primitiveColors.string;
+    else if (!isNaN(Number(text))) color = this.defaultSettings.primitiveColors.number;
     else if (text.includes('Circular') || text.includes('ref')) color = this.defaultSettings.primitiveColors.circular;
     else if (text.toLowerCase().includes('info')) color = this.defaultSettings.logLevelMainColors[ELoggerLevel.INFO];
     else if (text.toLowerCase().includes('warn')) color = this.defaultSettings.logLevelMainColors[ELoggerLevel.WARN];
@@ -99,13 +107,10 @@ export class Logger {
   }
 
   private colorPrimitive(text: string): { text: string, colorStyles: EStyles[], colorStylesValues: string[] }[] {
-    // split text by certain characters
-    const splitCharsNonScape = [' ', ',', ':', '<', '>'];
-    const splitCharsScape = ['*', '(', ')', '[', ']'];
     const result: { text: string, colorStyles: EStyles[], colorStylesValues: string[] }[] = [];
     let elementGroupBuffer = '';
-    text.split(RegExp(`(\\${splitCharsScape.join('|\\')}|${splitCharsNonScape.join('|')})`, 'gu')).forEach((element) => {
-      if ([...splitCharsNonScape, ...splitCharsScape].includes(element)) elementGroupBuffer += element;
+    text.split(RegExp(`(\\${Logger.splitCharsScape.join('|\\')}|${Logger.splitCharsNonScape.join('|')})`, 'gu')).forEach((element) => {
+      if (Logger.splitChars.includes(element)) elementGroupBuffer += element;
       else {
         if (elementGroupBuffer !== '') {
           result.push({ text: elementGroupBuffer, colorStyles: [], colorStylesValues: [] });
@@ -118,103 +123,96 @@ export class Logger {
     return result;
   }
 
-  /**
-   * Parses the message and returns an array of IMessageChunk objects
-   * the first IMessageChunk object is the main message, the rest are subLines
-   * @param text - The content to be parsed
-   * @param args - The arguments to be passed to the content
-   * @returns IMessageChunk[]
-   */
-  private processMessage(text: any, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
-    if (!text) text = 'undefined';
-
-    // String handling
-    if (typeof text !== 'object') {
-      const texts: string[] = [];
-      const otherKinds: any[] = [];
-      args.map((arg) => typeof arg === 'string' ? texts.push(arg) : otherKinds.push(arg));
-      const processedOtherKinds: IMessageChunk[] = [];
-      otherKinds.map((otherElement) => this.processMessage(otherElement, true)).forEach((otherPElement) => {
-        otherPElement.map((chunk) => processedOtherKinds.push(chunk));
-      });
-      const processedTexts: IMessageChunk[] = [];
-      (text.toString() as string).split('\n').forEach((line: string, index: number) => {
-        if (!Array.isArray(args)) args = [args];
-        const processedColors = this.colorPrimitive(utils.format(line, ...texts));
-        processedColors.forEach((color, colorIndex) => {
-          processedTexts.push({
-            content: this.redactText(color.text),
-            styling: color.colorStyles,
-            stylingParams: color.colorStylesValues,
-            subLine: index === 0 ? forceSubline : true,
-            breaksLine: (index === 0 ? forceSubline : true) && colorIndex === 0,
-          });
-        });
-      });
-      return [...processedTexts, ...processedOtherKinds];
-
-    // Error handling
-    } else if (text instanceof Error) {
-      const finalMessage: IMessageChunk[] = [];
-      const processedColors = this.colorPrimitive(utils.format((forceSubline ? 'Error: ' : '') + text.message.trim(), ...args));
+  private processStrings(text: any, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
+    const texts: string[] = [];
+    const otherKinds: any[] = [];
+    args.map((arg) => typeof arg === 'string' ? texts.push(arg) : otherKinds.push(arg));
+    const processedOtherKinds: IMessageChunk[] = [];
+    otherKinds.map((otherElement) => this.processMessage(otherElement, true)).forEach((otherPElement) => {
+      otherPElement.map((chunk) => processedOtherKinds.push(chunk));
+    });
+    const processedTexts: IMessageChunk[] = [];
+    (text.toString() as string).split('\n').forEach((line: string, index: number, arr: string[]) => {
+      const processedColors = this.colorPrimitive(utils.format(
+        this.redactText(line), ...((index === arr.length - 1) ? texts : [(line.includes('%s') ? texts.shift() : '')]),
+      ));
       processedColors.forEach((color, colorIndex) => {
-        finalMessage.push({
-          content: this.redactText(color.text),
+        processedTexts.push({
+          content: color.text,
           styling: color.colorStyles,
           stylingParams: color.colorStylesValues,
-          subLine: forceSubline,
-          breaksLine: colorIndex === 0 && forceSubline,
+          subLine: index === 0 ? forceSubline : true,
+          breaksLine: (index === 0 ? forceSubline : true) && colorIndex === 0,
         });
       });
+    });
+    return [...processedTexts, ...processedOtherKinds];
+  }
 
-      const stack = text.stack?.split('\n');
-      stack?.shift();
-
-      stack?.forEach((line) => {
-        const processedColors = this.colorPrimitive(utils.format(line.trim()));
-        processedColors.forEach((color, colorIndex) => {
-          finalMessage.push({
-            content: this.redactText(color.text),
-            styling: color.colorStyles,
-            stylingParams: color.colorStylesValues,
-            subLine: true,
-            breaksLine: colorIndex === 0,
-          });
-        });
+  private processErrors(text: Error, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
+    const finalMessage: IMessageChunk[] = [];
+    const processedColors = this.colorPrimitive(utils.format((forceSubline ? 'Error: ' : '') + this.redactText(text.message).trim(), ...args));
+    processedColors.forEach((color, colorIndex) => {
+      finalMessage.push({
+        content: color.text,
+        styling: color.colorStyles,
+        stylingParams: color.colorStylesValues,
+        subLine: forceSubline,
+        breaksLine: colorIndex === 0 && forceSubline,
       });
+    });
 
-      if (text.cause) {
-        const causedBy: IMessageChunk = {
-          content: '# Caused by:',
-          styling: [EStyles.specialSubLine],
-          stylingParams: [''],
+    const stack = text.stack?.split('\n');
+    stack?.shift();
+
+    stack?.forEach((line) => {
+      const processedColors = this.colorPrimitive(utils.format(this.redactText(line).trim()));
+      processedColors.forEach((color, colorIndex) => {
+        finalMessage.push({
+          content: color.text,
+          styling: color.colorStyles,
+          stylingParams: color.colorStylesValues,
           subLine: true,
-          breaksLine: true,
-        };
-
-        if (this.defaultSettings.causedByBackgroundColor) {
-          causedBy.styling.push(EStyles.backgroundColor);
-          causedBy.stylingParams.push(this.defaultSettings.causedByBackgroundColor);
-        }
-        if (this.defaultSettings.causedByTextColor) {
-          causedBy.styling.push(EStyles.textColor);
-          causedBy.stylingParams.push(this.defaultSettings.causedByTextColor);
-        }
-
-        finalMessage.push(causedBy);
-        finalMessage.push(...this.processMessage(text.cause, true, ...args));
-      }
-      return finalMessage;
-    } else if (!Array.isArray(text) || (Array.isArray(text) && (!args || args.length === 0))) {
-      const processedArgs: IMessageChunk[] = [];
-      if (args.length > 0) {
-        args.map((arg) => this.processMessage(arg, true)).forEach((processedArg) => {
-          processedArg.map((chunk) => processedArgs.push(chunk));
+          breaksLine: colorIndex === 0,
         });
-      }
-      return [...this.processMessage(utils.format(text), forceSubline), ...processedArgs];
-    }
+      });
+    });
 
+    if (text.cause) {
+      const causedBy: IMessageChunk = {
+        content: '# Caused by:',
+        styling: [EStyles.specialSubLine],
+        stylingParams: [''],
+        subLine: true,
+        breaksLine: true,
+      };
+
+      if (this.defaultSettings.causedByBackgroundColor) {
+        causedBy.styling.push(EStyles.backgroundColor);
+        causedBy.stylingParams.push(this.defaultSettings.causedByBackgroundColor);
+      }
+      if (this.defaultSettings.causedByTextColor) {
+        causedBy.styling.push(EStyles.textColor);
+        causedBy.stylingParams.push(this.defaultSettings.causedByTextColor);
+      }
+
+      finalMessage.push(causedBy);
+      finalMessage.push(...this.processMessage(text.cause, true, ...args));
+    }
+    return finalMessage;
+  }
+
+  private processObjects(text: any, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
+    const processedArgs: IMessageChunk[] = [];
+    if (args.length > 0) {
+      args.map((arg) => this.processMessage(arg, true)).forEach((processedArg) => {
+        processedArg.map((chunk) => processedArgs.push(chunk));
+      });
+    }
+    return [...this.processMessage(utils.format(text), forceSubline), ...processedArgs];
+  }
+
+  private processStringLiterals(text: string[], forceSubline: boolean, ...args: any[]): IMessageChunk[] {
     const finalMessage: (IMessageChunk & {subLine: boolean})[] = [];
 
     let switchedToSublines = forceSubline;
@@ -241,7 +239,24 @@ export class Logger {
     return finalMessage;
   }
 
+  /**
+   * Parses the message and returns an array of IMessageChunk objects
+   * the first IMessageChunk object is the main message, the rest are subLines
+   * @param text - The content to be parsed
+   * @param args - The arguments to be passed to the content
+   * @returns IMessageChunk[]
+   */
+  private processMessage(text: any, forceSubline: boolean, ...args: any[]): IMessageChunk[] {
+    if (!text) text = 'undefined';
+
+    if (typeof text !== 'object') return this.processStrings(text, forceSubline, ...args);
+    else if (text instanceof Error) return this.processErrors(text, forceSubline, ...args);
+    else if (!Array.isArray(text) || (Array.isArray(text) && (!args || args.length === 0))) return this.processObjects(text, forceSubline, ...args);
+    return this.processStringLiterals(text, forceSubline, ...args);
+  }
+
   private handleMessage(text: any, level: ELoggerLevel, ...args: any[]): void {
+    if (this.exited) return;
     const chunks = this.processMessage(text, false, ...args);
     const messageChunks: IMessageChunk[] = [];
     const subLines: IMessageChunk[] = [];
@@ -270,8 +285,7 @@ export class Logger {
     });
 
     // prevents errors where a message would have no content, only sublines
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    if (messageChunks.length === 0 && subLines.length > 0) messageChunks.push(subLines.shift()!);
+    if (messageChunks.length === 0) messageChunks.push({ content: '', styling: [], stylingParams: [], subLine: false, breaksLine: false });
 
     const message: ILogMessage = {
       messageChunks,
@@ -372,7 +386,10 @@ export class Logger {
    */
   fatal(text: any, ...args: any[]): void {
     this.handleMessage(text, ELoggerLevel.FATAL, ...args);
-    if (!this.disableFatalCrash) process.exit(647412);
+    if (!this.disableFatalCrash && !this.exited) {
+      this.exited = true;
+      AutoLogEnd._instance?.callDeconstructors().then(() => { process.exit(647412); });
+    }
   }
 
   /**

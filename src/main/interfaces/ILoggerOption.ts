@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-
 import { IDefault } from './IDefault';
 import { ELoggerLevel } from './ILogMessage';
 

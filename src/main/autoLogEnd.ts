@@ -11,6 +11,8 @@ export class AutoLogEnd {
   // eslint-disable-next-line no-use-before-define
   public static _instance?: AutoLogEnd;
   private deconstructors: Map<string, () => Promise<void>> = new Map();
+  private deconstructorCallbacks: (() => void)[] = [];
+  private runningDeconstructors = false;
 
   // callbacks
   private exitCallback: (exitCode: number) => Promise<void> = async (exitCode) => { await this.exitHandler({ exitCode }); };
@@ -40,6 +42,22 @@ export class AutoLogEnd {
     AutoLogEnd._instance = this;
   }
 
+  async callDeconstructors(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.runningDeconstructors) return this.deconstructorCallbacks.push(() => resolve);
+      if (this.deconstructors.size === 0) return resolve();
+      this.runningDeconstructors = true;
+      const promises: Promise<void>[] = [];
+      this.deconstructors.forEach((deconstructor) => promises.push(deconstructor()));
+      this.deconstructors.clear();
+      Promise.all(promises).then(() => {
+        this.runningDeconstructors = false;
+        this.deconstructorCallbacks.forEach((callback) => callback());
+        resolve();
+      });
+    });
+  }
+
   private async exitHandler({ err, exitCode }: {err?: Error | string, exitCode?: number | string}): Promise<void> {
     if (!this.exited) {
       process.stdin.resume();
@@ -49,9 +67,7 @@ export class AutoLogEnd {
         if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + exitCode ?? '?');
         else if (exitCode && exitCode === 123654 && err) this.logger.error(err);
       }
-      const promises: Promise<void>[] = [];
-      this.deconstructors.forEach((deconstructor) => promises.push(deconstructor()));
-      Promise.all(promises).then(() => {
+      this.callDeconstructors().then(() => {
         process.exit(typeof exitCode === 'string' ? 0 : exitCode);
       });
     }

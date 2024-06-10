@@ -1,3 +1,32 @@
+# v2.0.0
+  - [BREAKING] Full rewrite of the constructor and the way the logger works, logging methods however remain the same.
+
+  - [BREAKING] Removed the `fileProperties` parameter from the constructor, use instead new FileStorageEngine class for file logging.
+
+    - [BREAKING] Removed the ability to log using html format.
+
+    - [BREAKING] `logFolderPath` is now a required parameter for the FileStorageEngine class and will throw an error if not provided.
+
+  - [BREAKING] Removed automatic terminal logging, use the new ConsoleEngine class for terminal logging.
+
+  - [BREAKING] AutoLogEnd is now a singleton class that should be instantiated apart from the Logger class.
+
+  - [NEW] Added support for string substitution patterns.
+
+  - [NEW] Added support for multiple loggers with different configurations to log to the same Engine.
+
+  - [NEW] Added support for a logger to output to multiple engines of same or different kind.
+
+  - [NEW] Added coloring to primitive types and certain keywords.
+
+  - [NEW] Added the ability to a logger to use different color settings, including custom ones.
+
+  - [NEW] Added support custom single, multi, or dynamic colored backgrounds and text colors for prefixes.
+
+  - [NEW] Added support for template literals to the logging.
+
+  - [NEW] AutoLogEnd now has the capacity of running deconstructor functions on application exit.
+
 # v1.1.1: Saving Everything (patch)
   - [FIXED] Fixed a bug that caused logs that passed arguments to log the same thing twice
 

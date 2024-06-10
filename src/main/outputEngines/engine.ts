@@ -41,6 +41,14 @@ export abstract class Engine {
   }
 
   /**
+   * Register this Engine to an logger
+   * @param logger the logger instance to register this Engine
+   */
+  registerLogger(logger: Logger): void {
+    logger.registerListener(this);
+  }
+
+  /**
    * Converts a Date object to a string that can be used on logs
    * @param time Date object with the time to be converted
    * @param fullDate Boolean to indicate if result string should include days, months and years

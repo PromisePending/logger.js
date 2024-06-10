@@ -23,7 +23,7 @@ const logger = new Logger({
           return colors[i % colors.length];
         });
       },
-      // background color followes the same logic as color, it can be a function, an array or a string
+      // background color follows the same logic as color, it can be a function, an array or a string
       backgroundColor: '#553311',
     }
   ],
@@ -31,7 +31,6 @@ const logger = new Logger({
   disableFatalCrash: true,
   // makes the message of the log also be colored
   allLineColored: true,
-  redactedContent: ['true'],
 });
 
 // Creates and registers a ConsoleEngine, all logs will now be displayed on the terminal
@@ -62,18 +61,18 @@ logger.registerListener(new FileStorageEngine({
 }));
 
 // Regular usage
+logger.debug('Hello, World!');
 logger.info('Hello, World!');
 logger.warn('Hello, World!');
 logger.error('Hello, World!');
 logger.fatal('Hello, World!');
-logger.debug('Hello, World!');
 
 // Using template literals
-logger.info`Hello, ${'World'}`;
-logger.warn`Hello, ${'World'}`;
-logger.error`Hello, ${'World'}`;
-logger.fatal`Hello, ${'World'}`;
-logger.debug`Hello, ${'World'}`;
+logger.info`Hello, ${'World'}!`;
+logger.warn`Hello, ${'World'}!`;
+logger.error`Hello, ${'World'}!`;
+logger.fatal`Hello, ${'World'}!`;
+logger.debug`Hello, ${'World'}!`;
 
 // Logging different data types
 const myObj = {

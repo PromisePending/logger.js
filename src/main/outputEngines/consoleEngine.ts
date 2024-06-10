@@ -166,13 +166,16 @@ export class ConsoleEngine extends Engine {
       lineSizeBuffer += line.content.length;
       if (arr[index + 1]?.breaksLine || index === arr.length - 1) {
         const spaceFill = ''.padEnd(process.stdout.columns - lineSizeBuffer - 3);
-        subLinesBuffer.push(lineBuffer + this.parseTextStyles({
-          content: spaceFill,
-          styling: line.styling,
-          stylingParams: line.stylingParams,
-          subLine: true,
-          breaksLine: false,
-        }, true, currentMainColor, currentAccentColor));
+        const spacePadding = currentMainColor
+          ? this.parseTextStyles({
+            content: spaceFill,
+            styling: line.styling,
+            stylingParams: line.stylingParams,
+            subLine: true,
+            breaksLine: false,
+          }, true, currentMainColor, currentAccentColor)
+          : '';
+        subLinesBuffer.push(lineBuffer + spacePadding);
         lineBuffer = '';
         lineSizeBuffer = 0;
       }
