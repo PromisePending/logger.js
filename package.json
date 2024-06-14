@@ -17,7 +17,19 @@
     "url": "git+https://github.com/PromisePending/logger.js.git"
   },
   "keywords": [
+    "console",
     "logger",
+    "error",
+    "stacktrace",
+    "warn",
+    "info",
+    "debug",
+    "elegant",
+    "format",
+    "formatter",
+    "color",
+    "colors",
+    "error-handling",
     "typescript"
   ],
   "author": "PromisePending",
