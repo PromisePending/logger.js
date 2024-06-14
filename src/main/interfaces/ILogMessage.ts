@@ -1,4 +1,4 @@
-import { ILogSettings, IPrefix } from "./ILoggerOption";
+import { ILogSettings, IPrefix } from './ILoggerOption';
 
 export enum EStyles {
   bold = 1,
