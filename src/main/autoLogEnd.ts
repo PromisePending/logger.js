@@ -1,60 +1,129 @@
 import { Logger } from './logger';
-import util from 'util';
+import { ConsoleEngine } from './outputEngines';
 
-var exited = false;
-var logger: Logger | null = null;
+/**
+ * Singleton class that handles the end of the program
+ */
+export class AutoLogEnd {
+  private active = false;
+  private exited = false;
+  private logger!: Logger;
+  // eslint-disable-next-line no-use-before-define
+  public static _instance?: AutoLogEnd;
+  private deconstructors: Map<string, () => Promise<void>> = new Map();
+  private deconstructorCallbacks: (() => void)[] = [];
+  private runningDeconstructors = false;
 
-function exitHandler({ err, options, exitCode }: {err?: {stack: any, message: any, name: any}, options?: {uncaughtException: boolean}, exitCode?: number | string}): void {
-  if (!exited) {
-    process.stdin.resume();
-    exited = true;
-    if (typeof exitCode === 'string') {
-      logger?.warn('Manually Finished!');
-    } else {
-      if (exitCode !== 123654) logger?.info('Program finished, code: ' + exitCode);
-      if (exitCode === 123654 && options?.uncaughtException) {
-        logger?.fatal(util.format(typeof err === 'string' ? err : err?.stack));
-        exitCode = 1;
-      } else if (exitCode && exitCode === 123654) {
-        logger?.error(util.format(typeof err === 'string' ? err : err?.stack));
-        logger?.warn('#===========================================================#');
-        logger?.warn('| # AutoLogEnd prevent program exit!');
-        logger?.warn('| # Code that is not async or would be runned after the line that generated the error cannot run as per nodejs default behavior.');
-        logger?.warn('| # But promises, async code and event based functions will still be executed.');
-        logger?.warn('| # In order to prevent sync code to stop, use an try-catch or a promise.');
-        logger?.warn('#===========================================================#');
-        logger?.warn('If you want to manually exit, you can still use control-c in the process.');
-        exited = false;
-        return;
-      }
+  // callbacks
+  private exitCallback: (exitCode: number) => Promise<void> = async (exitCode) => { await this.exitHandler({ exitCode }); };
+  private sigintCallback: (error: Error) => Promise<void> = async (error) => { await this.exitHandler({ err: error, exitCode: 'SIGINT' }); };
+  private sigusr1Callback: (error: Error) => Promise<void> = async (error) => { await this.exitHandler({ err: error, exitCode: 'SIGUSR1' }); };
+  private sigusr2Callback: (error: Error) => Promise<void> = async (error) => { await this.exitHandler({ err: error, exitCode: 1 }); };
+  private sigtermCallback: (error: Error) => Promise<void> = async (error) => { await this.exitHandler({ err: error, exitCode: 'SIGTERM' }); };
+  private uncaughtExceptionCallback: (error: Error) => Promise<void> = async (error: Error) => { await this.exitHandler({ err: error, exitCode: 123654 }); };
+  private beforeExitCallback: (code: number) => Promise<void> = async (code: number) => { await this.exitHandler({ exitCode: code }); };
+
+  /**
+   * @constructor
+   * @param logger (optional) custom logger to be used
+   * @returns new instance of AutoLogEnd or the existing one
+   */
+  constructor(logger?: Logger) {
+    if (AutoLogEnd._instance) return AutoLogEnd._instance;
+
+    if (logger) this.logger = logger;
+    else {
+      this.logger = new Logger({ prefixes: [{ content: 'SYSTEM', color: '#ffaa00', backgroundColor: null }] });
+      this.logger.registerListener(new ConsoleEngine({ debug: true }));
     }
-    process.exit(typeof exitCode === 'string' ? 0 : exitCode);
+
+    this.activate();
+
+    AutoLogEnd._instance = this;
   }
-}
 
-export function activate(uncaughtException?: boolean, logger?: Logger): void {
-  logger = logger ?? new Logger({ prefix: 'SYSTEM' });
-  logger?.debug('AutoLogEnd activated!');
-  process.on('exit', (exitCode) => exitHandler({ exitCode, options: { uncaughtException: false } }));
-  process.on('SIGINT', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGINT' }); });
-  process.on('SIGUSR1', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGUSR1' }); });
-  process.on('SIGUSR2', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 1 }); });
-  process.on('SIGTERM', (error) => { exitHandler({ err: { message: error, name: null, stack: null }, options: { uncaughtException: false }, exitCode: 'SIGTERM' }); });
-  process.on('uncaughtException', (error) => {
-    exitHandler({
-      err: { message: error.message, name: error.name, stack: error.stack },
-      options: { uncaughtException: uncaughtException ?? false },
-      exitCode: 123654,
+  async callDeconstructors(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.runningDeconstructors) return this.deconstructorCallbacks.push(() => resolve);
+      if (this.deconstructors.size === 0) return resolve();
+      this.runningDeconstructors = true;
+      const promises: Promise<void>[] = [];
+      this.deconstructors.forEach((deconstructor) => promises.push(deconstructor()));
+      this.deconstructors.clear();
+      Promise.all(promises).then(() => {
+        this.runningDeconstructors = false;
+        this.deconstructorCallbacks.forEach((callback) => callback());
+        resolve();
+      });
     });
-  });
-}
+  }
 
-export function deactivate(): void {
-  process.removeListener('exit', exitHandler);
-  process.removeListener('SIGINT', exitHandler);
-  process.removeListener('SIGUSR1', exitHandler);
-  process.removeListener('SIGUSR2', exitHandler);
-  process.removeListener('SIGTERM', exitHandler);
-  process.removeListener('uncaughtException', exitHandler);
-  logger?.debug('AutoLogEnd deactivated!');
+  private async exitHandler({ err, exitCode }: {err?: Error | string, exitCode?: number | string}): Promise<void> {
+    if (!this.exited) {
+      process.stdin.resume();
+      this.exited = true;
+      if (typeof exitCode === 'string') this.logger.warn('Manually Finished!');
+      else {
+        if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + exitCode ?? '?');
+        else if (exitCode && exitCode === 123654 && err) this.logger.error(err);
+      }
+      this.callDeconstructors().then(() => {
+        process.exit(typeof exitCode === 'string' ? 0 : exitCode);
+      });
+    }
+  }
+
+  /**
+   * Adds a deconstructor function to be runned before the program exits
+   * NOTE: It is uncertain that node.js will execute desconstructor functions that are async.
+   * @param id Identifier for the deconstructor
+   * @param deconstructor Function to be runned before the program exits
+   */
+  appendDeconstructor(id: string, deconstructor: () => Promise<void>): void {
+    if (this.deconstructors.has(id)) this.logger.warn(`Deconstructor with id ${id} has overwritten!`);
+    this.deconstructors.set(id, deconstructor);
+  }
+
+  /**
+   * Removes a deconstructor function
+   * @param id Identifier for the deconstructor
+   */
+  removeDeconstructor(id: string): void {
+    if (!this.deconstructors.has(id)) return this.logger.warn(`Deconstructor with id ${id} not found!`);
+    this.deconstructors.delete(id);
+  }
+
+  /**
+   * Activates the AutoLogEnd
+   * @returns void
+   **/
+  activate(): void {
+    if (this.active) return;
+    process.on('exit', this.exitCallback);
+    process.on('SIGINT', this.sigintCallback);
+    process.on('SIGUSR1', this.sigusr1Callback);
+    process.on('SIGUSR2', this.sigusr2Callback);
+    process.on('SIGTERM', this.sigtermCallback);
+    process.on('uncaughtException', this.uncaughtExceptionCallback);
+    process.on('beforeExit', this.beforeExitCallback);
+    this.active = true;
+    this.logger.debug('AutoLogEnd activated!');
+  }
+
+  /**
+   * Deactivates the AutoLogEnd
+   * @returns void
+   **/
+  deactivate(): void {
+    if (!this.activate) return;
+    process.removeListener('exit', this.exitCallback);
+    process.removeListener('SIGINT', this.sigintCallback);
+    process.removeListener('SIGUSR1', this.sigusr1Callback);
+    process.removeListener('SIGUSR2', this.sigusr2Callback);
+    process.removeListener('SIGTERM', this.sigtermCallback);
+    process.removeListener('uncaughtException', this.uncaughtExceptionCallback);
+    process.removeListener('beforeExit', this.beforeExitCallback);
+    this.active = false;
+    this.logger.debug('AutoLogEnd deactivated!');
+  }
 }

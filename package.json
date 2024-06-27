@@ -1,21 +1,35 @@
 {
   "name": "@promisepending/logger.js",
-  "version": "1.1.1",
+  "version": "2.0.0-alpha.1",
   "description": "A better logger",
   "main": "build/index.js",
   "types": "src/main/index.ts",
   "scripts": {
     "build": "npx tsc -p .",
     "pdeploy": "node scripts/prepareDeploy.js",
+    "pretest": "npm run build",
     "test": "node src/tests/tester.js",
-    "pretest": "npm run build"
+    "eslint": "eslint ./src",
+    "eslint:fix": "eslint ./src --fix"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PromisePending/logger.js.git"
   },
   "keywords": [
+    "console",
     "logger",
+    "error",
+    "stacktrace",
+    "warn",
+    "info",
+    "debug",
+    "elegant",
+    "format",
+    "formatter",
+    "color",
+    "colors",
+    "error-handling",
     "typescript"
   ],
   "author": "PromisePending",
@@ -25,24 +39,20 @@
   },
   "homepage": "https://github.com/PromisePending/logger.js#readme",
   "dependencies": {
-    "adm-zip": "^0.5.10",
-    "chalk": "^4.1.2",
-    "escape-html": "^1.0.3"
+    "adm-zip": "^0.5.14",
+    "chalk": "^4.1.2"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.0",
-    "@types/escape-html": "^1.0.2",
-    "@types/node": "^18.15.3",
-    "@typescript-eslint/eslint-plugin": "^5.48.2",
-    "@typescript-eslint/parser": "^5.48.2",
-    "eslint": "^8.32.0",
-    "eslint-config-prettier": "^8.6.0",
-    "eslint-config-standard": "^17.0.0",
-    "eslint-plugin-import": "^2.27.5",
+    "@types/adm-zip": "^0.5.5",
+    "@types/node": "^20.14.2",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-deprecation": "^3.0.0",
+    "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-prettier": "^4.2.1",
-    "eslint-plugin-promise": "^6.1.1",
-    "prettier": "^2.8.3",
-    "typescript": "^5.0.2"
+    "eslint-plugin-promise": "^6.2.0",
+    "typescript": "^5.4.5"
   }
 }

@@ -18,16 +18,16 @@
 #
 
 <h2 align="center">📖 About</h2>
-&nbsp;&nbsp;&nbsp;&nbsp;This is a simple logger for NodeJS, made in TypeScript, with the objective of make beautiful and easy to read logs.
+&nbsp;&nbsp;&nbsp;&nbsp;A simple to use but powerful logger library for NodeJS, made with TypeScript, capable of making beautiful and well organized logs automagically.
 
 <br>
 
-&nbsp;&nbsp;&nbsp;&nbsp;Originally made for [twitch.js](https://github.com/PromisePending/twitch.js), we decided to make it in a separate package, so that it can be used in other projects without the need to install the entire twitch.js package or copy and maintain the code.
+&nbsp;&nbsp;&nbsp;&nbsp;Originally a small util for [twitch.js](https://github.com/PromisePending/twitch.js), Logger.js quickly expanded to other projects and started gaining more features, and now it stands as a standalone package to be used by anyone.
 
 <br>
 
 <h2 align="center">📦 Installing</h2>
-&nbsp;&nbsp;&nbsp;&nbsp;To install Logger.JS in your project, you need first to have NodeJS installed, then run the following command in your terminal:
+&nbsp;&nbsp;&nbsp;&nbsp;To install Logger.JS in your project, you need first to have NodeJS installed (version 20 is recommended), then use the following command to install Logger.js as a dependency on your project:
 
 <br>
 
@@ -45,38 +45,61 @@ yarn add @promisepending/logger.js
 
 <br>
 
-<h2 align="center">⌨ Use example</h2>
-&nbsp;&nbsp;&nbsp;&nbsp;To use Logger.JS in your project, you need to import the logger class, then create an instance of that class, passing as parameter your logger configurations as an object, or nothing if you want to use the default configurations.
+<h2 align="center">⌨ Usage example</h2>
+&nbsp;&nbsp;&nbsp;&nbsp;To use Logger.JS in your project, first import the Logger Class as well as the Engines that you will be using, then create instances of those classes, passing as parameter your configurations as an object.
+
+<br>
+
+The instanciation order doesn't matter since both the Logger class as well as the Engine classes provide methods to dynamically add or remove connections.
 
 <br>
 
 ```js
-const { Logger } = require('@promisepending/logger.js');
-// or
-import { Logger } from '@promisepending/logger.js';
+import { Logger, ConsoleEngine } from '@promisepending/logger.js';
 
 const logger = new Logger({
-  prefix: 'Logger.JS', // This will be the prefix of all logs (default: null)
-  disableFatalCrash: true, // If true, the logger will not crash the process when a fatal error occurs (default: false)
-  allLineColored: true, // If true, the whole line will be colored instead of only the prefix (default: false)
-  coloredBackground: false, // If true, the background of the lines will be colored instead of the text (default: false)
-  debug: false, // If true, the logger will log debug messages (default: false)
-  fileProperties: { // This is the configuration of the log files
-    enable: true, // If true, the logger will log to files (default: false) [NOTE: If false all below options will be ignored]
-    logFolderPath: './logs', // This is the path of the folder where the log files will be saved (default: './logs')
-    enableLatestLog: true, // If true, the logger will save the latest log in a file (default: true)
-    enableDebugLog: true, // If true, the logger will save the debug logs in a file (default: false)
-    enableErrorLog: true, // If true, the logger will save the error logs in a file (default: false)
-    enableFatalLog: true, // If true, the logger will save the fatal logs in a file (default: true)
-    generateHTMLLog: true, // If true, the logger will generate a HTML file with the logs otherwise a .log file (default: false)
-    compressLogFilesAfterNewExecution: true, // If true, the logger will compress the log files to zip after a new execution (default: true)
-  },
+  // Adds a basic string prefix
+  prefixes: ['Logger.JS',
+    // And a complex prefix
+    {
+      // Prefix text
+      content: 'This prefix has complex colors',
+      /* This function sets the color of the prefix text, the txt parameter is the content value and it must return a array whos size is equal to the amount of letters in the content value.
+      NOTE: color doesn't need to be a function, it can be a array, or a string! If it is an array then its size must match the amount of letters of the content value, however, if it is a string then the hex code will be used to paint the whole text */
+      color: (txt) => {
+        // In this example we set a list of hex colors and repeat it to match the amount of letters
+        const colors = ['#ff5555', '#55ff55', '#5555ff'];
+        return txt.split('').map((_, i) => {
+          return colors[i % colors.length];
+        });
+      },
+      // Background color follows the same logic as color, it can be a function, an array or a string
+      backgroundColor: '#000033',
+    }
+  ],
+  // Disables fatal crashing, so that fatal logs won't immediatly end the process
+  disableFatalCrash: true,
+  // Makes the message of the log also be colored
+  allLineColored: true,
 });
 ```
 
 <br>
 
-&nbsp;&nbsp;&nbsp;&nbsp;After creating the logger instance, you can use the methods to log your messages, as shown below:
+Then either before or after the Logger instanciation, instaciate the Engine(s).
+
+```js
+// Creates and registers a ConsoleEngine, all logs will now be displayed on the terminal
+logger.registerListener(new ConsoleEngine({
+  debug: true,
+}));
+```
+
+Note that we are using `logger.registerListener` however it is possible to just pass `logger` as a second parameter in the constructor of `ConsoleEngine`, but also call the `registerLogger` method of the Engine allowing you to create the Engine before the logger, or even dynamically add loggers to the Engine.
+
+<br>
+
+You can use the methods of the `logger` object we just create to log your messages, as shown below:
 
 <br>
 
@@ -90,7 +113,7 @@ logger.fatal('This is a fatal message');
 
 ### Results:
 
-<img alt="The result of the above logs in a windows command prompt" src="https://raw.githubusercontent.com/PromisePending/logger.js/release/.github/assets/LoggerExample.png">
+<img alt="The result of the above logs in a Konsole terminal" src="https://raw.githubusercontent.com/PromisePending/logger.js/release/.github/assets/LoggerExample.png">
 
 <br>
 
