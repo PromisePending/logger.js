@@ -5,6 +5,7 @@ import utils from 'util';
 import { IDefault } from './interfaces/IDefault';
 import Standard from './defaults/standard';
 import { AutoLogEnd } from './autoLogEnd';
+import { ConsoleEngine } from './outputEngines';
 
 /**
  * Main class that will process logs before automaticly sending then to registered Engines
@@ -12,7 +13,7 @@ import { AutoLogEnd } from './autoLogEnd';
 export class Logger {
   // constants
   private static splitCharsNonScape = [' ', ',', ':', '<', '>'];
-  private static splitCharsScape = ['*', '(', ')', '[', ']'];
+  private static splitCharsScape = ['*', '(', ')', '[', ']', '/', '\\'];
   private static splitChars = [...Logger.splitCharsNonScape, ...Logger.splitCharsScape];
 
   // private fields
@@ -257,6 +258,12 @@ export class Logger {
 
   private handleMessage(text: any, level: ELoggerLevel, ...args: any[]): void {
     if (this.exited) return;
+
+    if (this.logListeners.length === 0) {
+      this.registerListener(new ConsoleEngine({ debug: process.env.NODE_ENV !== 'production' }));
+      this.warn('No log listeners were registered, a ConsoleEngine was registered automatically.\nThis is a backard compatibility feature and should be avoided.');
+    }
+
     const chunks = this.processMessage(text, false, ...args);
     const messageChunks: IMessageChunk[] = [];
     const subLines: IMessageChunk[] = [];
