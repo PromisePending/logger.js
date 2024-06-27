@@ -1,4 +1,4 @@
-name: Publish API to NPM
+name: Publish to NPM
 
 on:
   push:
@@ -45,8 +45,23 @@ jobs:
       - name: Prepare to publish
         run: npm run pdeploy
 
-      - name: Publish to npm
+      - name: Publish to npm (alpha)
+        if: ${{ contains(steps.current_version.outputs.version, '-alpha') }}
         working-directory: ./build
-        run: npm publish --access=public
+        run: npm publish --provenance --access=public --tag alpha
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm (beta)
+        if: ${{ contains(steps.current_version.outputs.version, '-beta') }}
+        working-directory: ./build
+        run: npm publish --provenance --access=public --tag beta
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm (latest)
+        if: ${{ !contains(steps.current_version.outputs.version, '-alpha') && !contains(steps.current_version.outputs.version, '-beta') }}
+        working-directory: ./build
+        run: npm publish --provenance --access=public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
