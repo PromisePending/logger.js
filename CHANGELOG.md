@@ -1,4 +1,9 @@
-# v2.0.0
+# v2.0.0-ALPHA.1: Customize Everything (patch)
+  - [BACKWARDS COMPATIBILITY] Automatically register the console engine if no engine is provided and you try to log something.
+
+  - [NEW] Strings with highlightable words separated by `/` and `\` will be highlighted.
+
+# v2.0.0-ALPHA.0: Customize Everything
   - [BREAKING] Full rewrite of the constructor and the way the logger works, logging methods however remain the same.
 
   - [BREAKING] Removed the `fileProperties` parameter from the constructor, use instead new FileStorageEngine class for file logging.
@@ -65,7 +70,7 @@
 
   - [NEW] Added support to log objects, arrays and etc. Like the default `console.log` function.
 
-  - [BREAKING] Changed the export of AutoLogEnd now importing the package will return the `Logger` class and a object named `AutoLogEnd` with the `activate` and `deactivate` functions.
+  - [BREAKING] Changed the export of AutoLogEnd. Now, importing the package will return the `Logger` class and a object named `AutoLogEnd` with the `activate` and `deactivate` functions.
 
   - [NEW] AutoLogEnd `activate` function now accepts a `Logger` instance as 2º parameter. If not passed it will create a new instance of `Logger` with the default parameters. otherwise it will use the passed instance.
 

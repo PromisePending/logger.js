@@ -1,6 +1,6 @@
 {
   "name": "@promisepending/logger.js",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "description": "A better logger",
   "main": "build/index.js",
   "types": "src/main/index.ts",
