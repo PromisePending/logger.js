@@ -16,12 +16,9 @@ jobs:
       - name: Setup .npmrc (NPM)
         uses: actions/setup-node@v3
         with:
-          node-version: '16.x'
+          node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
           scope: '@promisepending'
-
-      - name: Enforce npm 8
-        run: npm install -g npm@8.x
 
       - name: Get Current version
         id: current_version
@@ -48,5 +45,3 @@ jobs:
       - name: Publish to npm
         working-directory: ./build
         run: npm publish --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
