@@ -64,7 +64,7 @@ export class AutoLogEnd {
       this.exited = true;
       if (typeof exitCode === 'string') this.logger.warn('Manually Finished!');
       else {
-        if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + exitCode ?? '?');
+        if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + (exitCode ?? '?'));
         else if (exitCode && exitCode === 123654 && err) this.logger.error(err);
       }
       this.callDeconstructors().then(() => {
