@@ -1,6 +1,8 @@
 # v2.0.0-ALPHA.2: Customize Everything (patch)
   - [FIXED] Minor bug caused by a missing parenthesis in the autoLogEnd
 
+  - [FIXED] Warning logs now use the correct console method to log to the terminal
+
   - [CI] Full CI update in order to comply with the new npm publishing rules
 
 # v2.0.0-ALPHA.1: Customize Everything (patch)

@@ -7,7 +7,7 @@ export class ConsoleEngine extends Engine {
 
   private consoleLoggers = {
     [ELoggerLevel.INFO]: console.info,
-    [ELoggerLevel.WARN]: console.warn,
+    [ELoggerLevel.WARN]: console.info,
     [ELoggerLevel.ERROR]: console.error,
     [ELoggerLevel.FATAL]: console.error,
     [ELoggerLevel.DEBUG]: console.debug,
