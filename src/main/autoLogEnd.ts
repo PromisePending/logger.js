@@ -8,7 +8,6 @@ export class AutoLogEnd {
   private active = false;
   private exited = false;
   private logger!: Logger;
-  // eslint-disable-next-line no-use-before-define
   public static _instance?: AutoLogEnd;
   private deconstructors: Map<string, () => Promise<void>> = new Map();
   private deconstructorCallbacks: (() => void)[] = [];

@@ -10,58 +10,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Setup .npmrc file to publish to npm
       - name: Setup .npmrc (NPM)
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
-          scope: '@promisepending'
-
-      - name: Enforce npm 8
-        run: npm install -g npm@8.x
 
       - name: Get Current version
         id: current_version
-        run: echo ::set-output name=version::$(node -p "require('./package.json').version")
+        run: echo version=$(node -p "require('./package.json').version") >> $GITHUB_OUTPUT
 
       - name: Get current npm version
         id: npm_version
-        run: echo ::set-output name=version::$(npm view arunabase version)
-      
+        run: echo version=$(npm view arunabase version) >> $GITHUB_OUTPUT
+
       - name: Compare versions and skip if same
         id: compare_versions
         if: ${{ steps.current_version.outputs.version == steps.npm_version.outputs.version }}
-        run: echo ::set-output name=skip::true && echo "Skipping publish as versions are same" && exit 0
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Prepare to publish
-        run: npm run pdeploy
+        run: echo "skip=true" >> $GITHUB_OUTPUT && echo "Skipping publish because versions are the same" && exit 0
 
       - name: Publish to npm (alpha)
-        if: ${{ contains(steps.current_version.outputs.version, '-alpha') }}
-        working-directory: ./build
+        if: ${{ contains(steps.current_version.outputs.version, '-alpha') && steps.compare_versions.outputs.skip != 'true' }}
         run: npm publish --provenance --access=public --tag alpha
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to npm (beta)
-        if: ${{ contains(steps.current_version.outputs.version, '-beta') }}
-        working-directory: ./build
+        if: ${{ contains(steps.current_version.outputs.version, '-beta') && steps.compare_versions.outputs.skip != 'true' }}
         run: npm publish --provenance --access=public --tag beta
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to npm (latest)
-        if: ${{ !contains(steps.current_version.outputs.version, '-alpha') && !contains(steps.current_version.outputs.version, '-beta') }}
-        working-directory: ./build
+        if: ${{ !contains(steps.current_version.outputs.version, '-alpha') && !contains(steps.current_version.outputs.version, '-beta') && steps.compare_versions.outputs.skip != 'true' }}
         run: npm publish --provenance --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

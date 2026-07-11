@@ -1,16 +1,19 @@
 {
   "name": "@promisepending/logger.js",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "A better logger",
   "main": "build/index.js",
-  "types": "src/main/index.ts",
+  "types": "build/index.d.ts",
+  "type": "commonjs",
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "npx tsc -p .",
-    "pdeploy": "node scripts/prepareDeploy.js",
+    "prepack": "npm run build",
     "pretest": "npm run build",
     "test": "node src/tests/tester.js",
-    "eslint": "eslint ./src",
-    "eslint:fix": "eslint ./src --fix"
+    "lint": "npx eslint src/main --fix"
   },
   "repository": {
     "type": "git",
@@ -38,21 +41,21 @@
     "url": "https://github.com/PromisePending/logger.js/issues"
   },
   "homepage": "https://github.com/PromisePending/logger.js#readme",
+  "publishConfig": {
+    "provenance": true
+  },
   "dependencies": {
-    "adm-zip": "^0.5.14",
+    "adm-zip": "^0.6.0",
     "chalk": "^4.1.2"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.5",
-    "@types/node": "^20.14.2",
-    "@typescript-eslint/eslint-plugin": "^7.13.0",
-    "@typescript-eslint/parser": "^7.13.0",
-    "eslint": "^8.57.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-deprecation": "^3.0.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.2.0",
-    "typescript": "^5.4.5"
+    "@types/node": "^26.1.1",
+    "@typescript-eslint/eslint-plugin": "8.63.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-node": "11.1.0",
+    "eslint-plugin-promise": "7.3.0",
+    "globals": "17.7.0",
+    "typescript": "^6.0.3"
   }
 }
