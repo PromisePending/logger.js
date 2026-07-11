@@ -1,3 +1,8 @@
+# v2.0.0-ALPHA.2: Customize Everything (patch)
+  - [FIXED] Minor bug caused by a missing parenthesis in the autoLogEnd
+
+  - [CI] Full CI update in order to comply with the new npm publishing rules
+
 # v2.0.0-ALPHA.1: Customize Everything (patch)
   - [BACKWARDS COMPATIBILITY] Automatically register the console engine if no engine is provided and you try to log something.
 
