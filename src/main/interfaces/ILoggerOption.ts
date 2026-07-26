@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+/* eslint-disable @typescript-eslint/no-duplicate-enum-values */
 
 export enum ELoggerLevel {
   INFO = 0,
@@ -34,8 +34,8 @@ export const ELoggerLevelAlternateColors = [
   '#000000',
   '#000000',
   '#ff0000',
-  '#D4D4D4'
-]
+  '#D4D4D4',
+];
 
 export interface ILoggerFileProperties {
   enable: boolean;
