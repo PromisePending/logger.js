@@ -78,7 +78,6 @@ export class Logger {
 
       // handles process exists to properly close the streams
       process.on('exit', (exitCode) => {
-        // eslint-disable-next-line max-len
         this.closeFileStreams(`${this.fileProperties.generateHTMLLog ? '<br>\n<span>' : '\n'}Process exited with code (${exitCode})${this.fileProperties.generateHTMLLog ? '</span>\n<br>' : '\n'}`);
       });
     } else {
@@ -218,7 +217,6 @@ export class Logger {
       this.debugLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
     }
     if (this.fileProperties.enableErrorLog && level === ELoggerLevel.ERROR) {
-      // eslint-disable-next-line max-len
       this.errorLogStream?.write(this.fileProperties.generateHTMLLog ? parentSpanElement : (rawMessagePrefix + ' ' + text + '\n'));
     }
     if (this.fileProperties.enableLatestLog && level !== ELoggerLevel.DEBUG) {
@@ -281,7 +279,6 @@ export class Logger {
     // eslint-disable-next-line max-len
     const fullPrefixSpan = `<span style="color: ${ELoggerLevelAlternateColors[3]}; background: ${ELoggerLevelBaseColors[3]};--txtBackground: ${ELoggerLevelBaseColors[3]};"><span class='pre'>${time} [${this.prefix}] ${levelMsg}&nbsp;</span>${fullSpan}</span>\n`;
 
-    // eslint-disable-next-line max-len
     const finalMessage = (this.fileProperties.generateHTMLLog ? prefixSpan : (time + ' [' + this.prefix + '] ' + levelMsg + ' ' + text + '\n')) + 'Please check the fatal log file for more details.\n';
     const finalFatalMessage = this.fileProperties.generateHTMLLog ? fullPrefixSpan : (time + ' [' + this.prefix + '] ' + levelMsg + ' ' + fullString + '\n');
 
