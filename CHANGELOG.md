@@ -1,3 +1,6 @@
+# v1.1.2: Saving Everything (patch II)
+  - [DEPS] Updated dependencies to non-vulnerable versions
+
 # v1.1.1: Saving Everything (patch)
   - [FIXED] Fixed a bug that caused logs that passed arguments to log the same thing twice
 

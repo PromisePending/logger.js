@@ -1,6 +1,6 @@
 {
   "name": "@promisepending/logger.js",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A better logger",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -33,24 +33,17 @@
     "provenance": true
   },
   "dependencies": {
-    "adm-zip": "^0.5.10",
-    "chalk": "^4.1.2",
-    "escape-html": "^1.0.3"
+    "adm-zip": "0.6.0",
+    "chalk": "4.1.2",
+    "escape-html": "1.0.3"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.0",
-    "@types/escape-html": "^1.0.2",
-    "@types/node": "^18.15.3",
-    "@typescript-eslint/eslint-plugin": "^5.48.2",
-    "@typescript-eslint/parser": "^5.48.2",
-    "eslint": "^8.32.0",
-    "eslint-config-prettier": "^8.6.0",
-    "eslint-config-standard": "^17.0.0",
-    "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-prettier": "^4.2.1",
-    "eslint-plugin-promise": "^6.1.1",
-    "prettier": "^2.8.3",
-    "typescript": "^5.0.2"
+    "@eslint/js": "^10.0.1",
+    "@types/escape-html": "^1.0.4",
+    "@types/node": "^26.1.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0"
   }
 }
