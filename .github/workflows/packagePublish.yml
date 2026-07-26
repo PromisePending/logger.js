@@ -9,6 +9,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,6 +36,9 @@ jobs:
         id: compare_versions
         if: ${{ steps.current_version.outputs.version == steps.npm_version.outputs.version }}
         run: echo "skip=true" >> $GITHUB_OUTPUT && echo "Skipping publish because versions are the same" && exit 0
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Publish to npm (alpha)
         if: ${{ contains(steps.current_version.outputs.version, '-alpha') && steps.compare_versions.outputs.skip != 'true' }}
