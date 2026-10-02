@@ -1,3 +1,6 @@
+# v1.1.3: Saving Everything (patch III)
+  - [DEPS] Updated dependencies to non-vulnerable versions
+
 # v1.1.2: Saving Everything (patch II)
   - [DEPS] Updated dependencies to non-vulnerable versions
 
