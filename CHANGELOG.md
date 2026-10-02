@@ -5,6 +5,8 @@
 
   - [CI] Full CI update in order to comply with the new npm publishing rules
 
+  - [DEPS] Updated dependencies to latest versions
+
 # v2.0.0-ALPHA.1: Customize Everything (patch)
   - [BACKWARDS COMPATIBILITY] Automatically register the console engine if no engine is provided and you try to log something.
 
