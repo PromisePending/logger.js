@@ -8,7 +8,6 @@ export class AutoLogEnd {
   private active = false;
   private exited = false;
   private logger!: Logger;
-  // eslint-disable-next-line no-use-before-define
   public static _instance?: AutoLogEnd;
   private deconstructors: Map<string, () => Promise<void>> = new Map();
   private deconstructorCallbacks: (() => void)[] = [];
@@ -64,7 +63,7 @@ export class AutoLogEnd {
       this.exited = true;
       if (typeof exitCode === 'string') this.logger.warn('Manually Finished!');
       else {
-        if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + exitCode ?? '?');
+        if (exitCode !== 123654 && exitCode !== 647412) this.logger.info('Program finished, code: ' + (exitCode ?? '?'));
         else if (exitCode && exitCode === 123654 && err) this.logger.error(err);
       }
       this.callDeconstructors().then(() => {

@@ -2,3 +2,5 @@
 .eslintrc
 .prettierc
 tests/
+eslint.config.mjs
+.markdownlint.json
